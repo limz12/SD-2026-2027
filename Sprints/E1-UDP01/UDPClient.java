@@ -38,7 +38,7 @@ public class UDPClient {
             //ler do teclado 4.1
             Scanner sc = new Scanner(System.in);
             String inputTeclado ="";
-            int ordemMensagem = 1;
+            int ordemMensagem = 0;
             do {
                 System.out.print("> ");
 

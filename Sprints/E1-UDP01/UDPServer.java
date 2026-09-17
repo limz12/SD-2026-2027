@@ -14,7 +14,7 @@ public class UDPServer {
 
             System.out.println("Socket a correr em localhost:"+6789);
 
-            int ordemAtual = 1;
+            int ordemAtual = 0;
 
             while (true) {
                 //RECEBER DADOS DO CLIENTE
@@ -28,16 +28,26 @@ public class UDPServer {
                 //IR BUSCAR A POS ATE A ,
                 int pos = mensagemCliente.indexOf(',');
                 if(pos == -1){
-                    String erro = "ERRO! A mensagem do cliente nao segue o padrao <N>,<mensagem>";
-                    System.out.println(erro);
+                    if (mensagemCliente.contentEquals("!q"))
+                    {
+                        String erro = "Adeus cliente :)";
+                        System.out.println(erro);
 
+                        DatagramPacket respostaErro = new DatagramPacket(erro.getBytes(),erro.length(), request.getAddress(),request.getPort());
+                        aSocket.send(respostaErro);
+                    } else {
+                        String erro = "ERRO! A mensagem do cliente nao segue o padrao <N>,<mensagem>";
+                        System.out.println(erro);
 
-                    DatagramPacket respostaErro = new DatagramPacket(erro.getBytes(),erro.length(), request.getAddress(),request.getPort());
-                    aSocket.send(respostaErro);
+                        DatagramPacket respostaErro = new DatagramPacket(erro.getBytes(),erro.length(), request.getAddress(),request.getPort());
+                        aSocket.send(respostaErro);
+                    }
+
                     continue;
                 }
 
-                //LOGICA: SE O ATUAL EX = 1 FOR IGUAL AO ATUAL
+
+                //SE FOR O ATUAL
                 String checkOrdem = String.valueOf(ordemAtual);
                 System.out.println("Valor do checkOrdem: "+checkOrdem);
                 System.out.println("Valor da ordem da mensagem do cliente: "+mensagemCliente.substring(0,pos));
@@ -54,7 +64,7 @@ public class UDPServer {
                 } else {
                     System.out.println("ERRO! A mensagem do cliente nao está ordenada ou então está vazia, à espera da ordem correta....");
 
-                    String erro = "ERRO! Tens de enviar o pacote nº: "+String.valueOf(ordemAtual);
+                    String erro = "waitingfor,"+String.valueOf(ordemAtual);
                     System.out.println(erro);
 
                     DatagramPacket respostaErro = new DatagramPacket(erro.getBytes(),erro.length(), request.getAddress(),request.getPort());
