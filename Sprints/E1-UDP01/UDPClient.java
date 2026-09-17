@@ -65,8 +65,7 @@ public class UDPClient {
                 DatagramPacket resposta = new DatagramPacket(bufferResposta, bufferResposta.length);
                 aSocket.receive(resposta);
 
-                // Garante que lê exatamente o tamanho da resposta enviada pelo SERVIDO,
-                // evitando cortar a resposta se ela tiver um tamanho diferente da mensagem enviada.
+
                 System.out.println("Reply: " + new String(resposta.getData(), 0, resposta.getLength()));
 
             } while (!inputTeclado.contains("!q"));

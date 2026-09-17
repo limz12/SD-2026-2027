@@ -14,7 +14,7 @@ public class UDPServer {
 
             System.out.println("Socket a correr em localhost:"+6789);
 
-            int ordemAtual = 0;
+            int ordemAtual = 1;
 
             while (true) {
                 //RECEBER DADOS DO CLIENTE
@@ -37,15 +37,14 @@ public class UDPServer {
                     continue;
                 }
 
-                //LOGICA: SE O ATUAL EX = 1 FOR IGUAL AO ATUAL = 0 +1 QUER DIZER QUE E O CORRETO
-                String checkOrdem = String.valueOf(ordemAtual + 1 );
+                //LOGICA: SE O ATUAL EX = 1 FOR IGUAL AO ATUAL
+                String checkOrdem = String.valueOf(ordemAtual);
                 System.out.println("Valor do checkOrdem: "+checkOrdem);
                 System.out.println("Valor da ordem da mensagem do cliente: "+mensagemCliente.substring(0,pos));
 
                 if(mensagemCliente.substring(0,pos).equals(checkOrdem) && mensagemCliente != null){
 
                     //RESPOSTA DO SERVIDOR (apenas com a nova mensagem)
-
                     DatagramPacket respostaCliente = new DatagramPacket(mensagemCliente.getBytes(),
                             request.getLength(), request.getAddress(), request.getPort());
                     aSocket.send(respostaCliente);
@@ -54,6 +53,12 @@ public class UDPServer {
 
                 } else {
                     System.out.println("ERRO! A mensagem do cliente nao está ordenada ou então está vazia, à espera da ordem correta....");
+
+                    String erro = "ERRO! Tens de enviar o pacote nº: "+String.valueOf(ordemAtual);
+                    System.out.println(erro);
+
+                    DatagramPacket respostaErro = new DatagramPacket(erro.getBytes(),erro.length(), request.getAddress(),request.getPort());
+                    aSocket.send(respostaErro);
                     continue;
 
                 }
