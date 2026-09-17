@@ -48,7 +48,7 @@ public class UDPServer {
 
 
                 //SE FOR O ATUAL
-                String checkOrdem = String.valueOf(ordemAtual);
+                String checkOrdem = String.valueOf(ordemAtual+1);
                 System.out.println("Valor do checkOrdem: "+checkOrdem);
                 System.out.println("Valor da ordem da mensagem do cliente: "+mensagemCliente.substring(0,pos));
 
@@ -64,7 +64,7 @@ public class UDPServer {
                 } else {
                     System.out.println("ERRO! A mensagem do cliente nao está ordenada ou então está vazia, à espera da ordem correta....");
 
-                    String erro = "waitingfor,"+String.valueOf(ordemAtual);
+                    String erro = "waitingfor,"+String.valueOf(ordemAtual+1);
                     System.out.println(erro);
 
                     DatagramPacket respostaErro = new DatagramPacket(erro.getBytes(),erro.length(), request.getAddress(),request.getPort());

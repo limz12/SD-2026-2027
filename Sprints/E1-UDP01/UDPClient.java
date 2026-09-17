@@ -13,7 +13,7 @@ public class UDPClient {
             aSocket = new DatagramSocket();
 
             //timeout maximo para obter resposta do socket
-            //aSocket.setSoTimeout(2000);
+            aSocket.setSoTimeout(2000);
 
             InetAddress aHost = InetAddress.getByName("localhost");
             int serverPort = 6789;
@@ -37,28 +37,40 @@ public class UDPClient {
 
             //ler do teclado 4.1
             Scanner sc = new Scanner(System.in);
+
+            System.out.println("Escolha o modo de envio:");
+            System.out.println("1 - Automatico (1, 2, 3...)");
+            System.out.println("2 - Manual (indica o N antes da mensagem)");
+            System.out.print("Modo > ");
+            String modo = sc.nextLine().trim();
+
             String inputTeclado ="";
-            int ordemMensagem = 0;
+            int ordemMensagem = 1;
             do {
                 System.out.print("> ");
 
                 String textoLido = sc.nextLine();
 
-                // Usamos 'continue' em vez de 'return' para o ciclo não fechar o programa e pedir novo input.
                 if (textoLido.isBlank()) {
                     System.out.println("Não pode conter espaços brancos ou estar vazio.");
                     continue;
                 }
 
-                // Monta a string final com a ordem (comentar embaixo e descomentar a seguinte para alterar a ordem dos pacotes manualmente)
-                //inputTeclado = ordemMensagem + "," + textoLido;
-                inputTeclado = textoLido;
+                if (modo.equals("2")) {
+                    System.out.print("Indique o numero de ordem N > ");
+                    String numManual = sc.nextLine().trim();
+                    inputTeclado = numManual + "," + textoLido;
+                } else {
+                    // Monta a string final com a ordem (comentar embaixo e descomentar a seguinte para alterar a ordem dos pacotes manualmente)
+                    inputTeclado = ordemMensagem + "," + textoLido;
+                    //inputTeclado = textoLido;
+                    ordemMensagem++;
+                }
 
                 // enviar linha para o servidor
                 byte mensagem[] = inputTeclado.getBytes();
                 DatagramPacket pacoteMensagem = new DatagramPacket(mensagem, mensagem.length, aHost, serverPort);
                 aSocket.send(pacoteMensagem);
-                ordemMensagem++;
 
                 //receber a resposta do servidor (bloqueante ele fica a espera da resposta)
                 byte[] bufferResposta = new byte[1000];
