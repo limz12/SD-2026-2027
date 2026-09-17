@@ -1,5 +1,7 @@
+import javax.xml.crypto.Data;
 import java.net.*;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 public class UDPClient {
@@ -29,7 +31,26 @@ public class UDPClient {
             System.out.println("Reply: " + new String(reply.getData(),0,m.length));
 
             //ler do teclado 4.1
-            Scanner lerTeclado = new Scanner(System.in);
+            Scanner sc = new Scanner(System.in);
+            String inputTeclado;
+            int ordemMensagem = 1;
+            do {
+                System.out.print("> ");
+                inputTeclado = ordemMensagem+","+sc.nextLine();
+
+                // enviar linha para o servidor
+                byte mensagem[] = inputTeclado.getBytes();
+                DatagramPacket pacoteMensagem = new DatagramPacket(mensagem,mensagem.length, aHost, serverPort);
+                aSocket.send(pacoteMensagem);
+                ordemMensagem++;
+
+                //receber a resposta do servidor
+                byte[] bufferResposta = new byte[1000];
+                DatagramPacket resposta = new DatagramPacket(bufferResposta, bufferResposta.length);
+                aSocket.receive(resposta);
+                System.out.println("Reply: " + new String(resposta.getData(),0,mensagem.length));
+
+            } while (!inputTeclado.contains("!q"));
 
 
 
