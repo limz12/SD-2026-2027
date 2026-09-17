@@ -1,5 +1,6 @@
 import java.net.*;
 import java.io.*;
+import java.util.Scanner;
 
 public class UDPClient {
 
@@ -23,7 +24,15 @@ public class UDPClient {
 
             aSocket.receive(reply);
 
-            System.out.println("Reply: " + new String(reply.getData()));
+            //Resposta ao CA2: apenas com new String(reply.getData), ele converte o comprimento do buffer para string dai ter muitos caracteres que nao sao mensagem.
+            //para resolver isso foi dado um offset de 0, para este buffer quero que respondas desde o 0 "primeira posicao" até ao final  "m.lenght"
+            System.out.println("Reply: " + new String(reply.getData(),0,m.length));
+
+            //ler do teclado 4.1
+            Scanner lerTeclado = new Scanner(System.in);
+
+
+
 
         } catch (SocketException e) { System.out.println("Socket: " + e.getMessage());
         } catch (IOException e)     { System.out.println("IO: " + e.getMessage());

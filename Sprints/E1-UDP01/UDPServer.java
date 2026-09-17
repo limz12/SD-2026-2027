@@ -10,6 +10,8 @@ public class UDPServer {
             aSocket = new DatagramSocket(6789);
             byte[] buffer = new byte[1000];
 
+            System.out.println("Socket a correr em localhost:"+6789);
+
             while (true) {
                 DatagramPacket request = new DatagramPacket(buffer, buffer.length);
                 aSocket.receive(request);
