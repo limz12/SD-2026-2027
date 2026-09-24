@@ -87,8 +87,8 @@ public class UDPClient {
                 // mesmo que o utilizador escreva "waitingfor,2" como texto.
                 if (resposta.startsWith(PREFIXO_WAITING)) {
                     String esperada = resposta.substring(PREFIXO_WAITING.length());
-                    System.out.println(">>> FORA DE ORDEM: o servidor está à espera da mensagem "
-                            + esperada + " (a sua mensagem " + N + " foi descartada)");
+                    //System.out.println(">>> FORA DE ORDEM: o servidor está à espera da mensagem " + esperada);
+                    System.out.println(">>> FORA DE ORDEM ");
                 } else {
                     System.out.println("Echo    : \"" + resposta + "\"  (aceite em ordem)");
                     proximo = N + 1; // sincroniza a numeração automática com o que foi aceite

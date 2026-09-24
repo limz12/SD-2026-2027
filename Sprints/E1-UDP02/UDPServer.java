@@ -8,33 +8,27 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Servidor UDP com deteção de mensagens fora de ordem.
- *
+ * Servidor UDP com deteção de mensagens fora de ordem e gestão de cascatas.
  * Formato esperado das mensagens: <N>,<texto>
- * Estado mantido: L = número da última mensagem aceite em ordem
- * Valor inicial: L = 0 ("ainda não foi aceite nada")
- * Regra de decisão: se N == L+1 -> echo e L = N
- * caso contrário -> "waitingfor,<L+1>", L inalterado
  */
 public class UDPServer {
 
     static Map<Integer, String> temp = new HashMap<>();
     static List<String> rececao = new ArrayList<>();
 
-
     public static int processDeliveredMessages(int nLastMessageInOrder, int nCurrentMessage, String currentMessage) {
 
-        //Ignorar mensagens duplicadas ou já entregues (N <= L)
+        // Ignorar mensagens duplicadas ou já entregues (N <= L)
         if (nCurrentMessage <= nLastMessageInOrder) {
             return nLastMessageInOrder;
         }
 
-        //SE VIER ORDENADA
+        // SE VIER ORDENADA
         if (nCurrentMessage == nLastMessageInOrder + 1) {
             rececao.add(currentMessage);
             nLastMessageInOrder++;
 
-            //ENQUANTO HOUVER SEQUENCIA NO MAP, VAI ADICIONAR A LISTA DE RECESSAO E TIRAR DA TEMPORARIA
+            // Descarregar cascata acumulada no temp
             while (temp.get(nLastMessageInOrder + 1) != null) {
                 rececao.add(temp.get(nLastMessageInOrder + 1));
                 temp.remove(nLastMessageInOrder + 1);
@@ -44,62 +38,52 @@ public class UDPServer {
         // SE VIER FORA DE ORDEM
         else {
             temp.put(nCurrentMessage, currentMessage);
-
-            while (temp.get(nLastMessageInOrder + 1) != null) {
-                rececao.add(temp.get(nLastMessageInOrder + 1));
-                temp.remove(nLastMessageInOrder + 1);
-                nLastMessageInOrder++;
-            }
         }
 
         return nLastMessageInOrder;
     }
 
-
     public static void main(String args[]) {
         DatagramSocket aSocket = null;
-
-        // Estado mínimo do servidor: L = 0 significa "nada aceite ainda",
-        // logo a próxima mensagem esperada é a 1.
         int L = 0;
-
 
         try {
             aSocket = new DatagramSocket(6789);
             System.out.println("Servidor UDP à escuta no porto 6789.  L = " + L);
 
             while (true) {
-
-                // Buffer criado dentro do ciclo: uma mensagem curta nunca fica
-                // contaminada pelos bytes de uma mensagem anterior mais longa.
                 byte[] buffer = new byte[1000];
                 DatagramPacket request = new DatagramPacket(buffer, buffer.length);
                 aSocket.receive(request);
 
-                // getData() é o recipiente todo (1000 bytes); getLength() são os válidos.
                 String recebido = new String(request.getData(), 0, request.getLength());
                 System.out.println("\nRecebido: \"" + recebido + "\"");
 
-                // Partir em 2: tudo o que vem depois da PRIMEIRA vírgula é texto,
-                // mesmo que o texto contenha vírgulas.
                 String[] partes = recebido.split(",", 2);
 
-                boolean emOrdem = false;
+                int lAntes = L;
+                boolean entregueOuProcessada = false;
+                int N = -1; // Guardar N para diagnóstico de prints
 
                 if (partes.length < 2) {
-                    // Mal formada: não tem vírgula. O servidor não termina nem mexe em L.
                     System.out.println("  -> mal formada (sem número de sequência)");
                 } else {
                     try {
-                        int N = Integer.parseInt(partes[0].trim());
-                        if (N == L + 1) {
-                            L = N;
-                            emOrdem = true;
+                        N = Integer.parseInt(partes[0].trim());
+
+                        L = processDeliveredMessages(L, N, partes[1].trim());
+
+                        if (L > lAntes) {
+                            entregueOuProcessada = true;
                         } else {
-                            System.out.println("  -> fora de ordem (N = " + N + ", esperado " + L + "+1)");
+                            if (N <= lAntes) {
+                                System.out.println("  -> duplicada ou antiga (descartada, N = " + N + ")");
+                            } else {
+                                System.out.println("  -> fora de ordem (guardada no temp, N = " + N + ")");
+                            }
                         }
+
                     } catch (NumberFormatException e) {
-                        // N não é um número. Mesma política: responde e continua.
                         System.out.println("  -> mal formada (N não é número)");
                     }
                 }
@@ -107,25 +91,30 @@ public class UDPServer {
                 DatagramPacket reply;
                 String textoResposta;
 
-                if (emOrdem) {
-                    // Echo: reenvia os bytes recebidos, usando request.getLength()
-                    // e não buffer.length, para não arrastar a cauda do buffer.
+                if (entregueOuProcessada) {
                     textoResposta = recebido;
                     reply = new DatagramPacket(request.getData(), request.getLength(),
                             request.getAddress(), request.getPort());
-                    System.out.println("  -> em ordem: echo");
+                    System.out.println("  -> entregue: echo");
                 } else {
-                    // Mensagem descartada (não é guardada); pede-se a que falta.
                     textoResposta = "waitingfor," + (L + 1);
                     byte[] dados = textoResposta.getBytes();
                     reply = new DatagramPacket(dados, dados.length,
                             request.getAddress(), request.getPort());
+                    System.out.println("  -> a aguardar: " + textoResposta);
                 }
 
-                // Endereço e porto do destinatário vêm do próprio datagrama recebido.
                 aSocket.send(reply);
 
-                System.out.println("  Resposta: \"" + textoResposta + "\"   |   L = " + L);
+                // Prints de diagnóstico corrigidos e rigorosos
+                int entreguesNestePasso = L - lAntes;
+                List<String> entreguesAgora = new ArrayList<>();
+                if (entreguesNestePasso > 0) {
+                    entreguesAgora = rececao.subList(rececao.size() - entreguesNestePasso, rececao.size());
+                }
+
+                System.out.println("  [Estado] L = " + L + " | temp = " + temp +
+                        " | entregues neste passo (" + entreguesNestePasso + ") = " + entreguesAgora);
             }
 
         } catch (SocketException e) {
