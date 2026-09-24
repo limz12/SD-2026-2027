@@ -2,6 +2,10 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Servidor UDP com deteção de mensagens fora de ordem.
@@ -14,13 +18,41 @@ import java.net.SocketException;
  */
 public class UDPServer {
 
-    static Map<Integer,String> temp = new HashMap<>();
+    static Map<Integer, String> temp = new HashMap<>();
     static List<String> rececao = new ArrayList<>();
 
 
     public static int processDeliveredMessages(int nLastMessageInOrder, int nCurrentMessage, String currentMessage) {
 
+        //Ignorar mensagens duplicadas ou já entregues (N <= L)
+        if (nCurrentMessage <= nLastMessageInOrder) {
+            return nLastMessageInOrder;
+        }
 
+        //SE VIER ORDENADA
+        if (nCurrentMessage == nLastMessageInOrder + 1) {
+            rececao.add(currentMessage);
+            nLastMessageInOrder++;
+
+            //ENQUANTO HOUVER SEQUENCIA NO MAP, VAI ADICIONAR A LISTA DE RECESSAO E TIRAR DA TEMPORARIA
+            while (temp.get(nLastMessageInOrder + 1) != null) {
+                rececao.add(temp.get(nLastMessageInOrder + 1));
+                temp.remove(nLastMessageInOrder + 1);
+                nLastMessageInOrder++;
+            }
+        }
+        // SE VIER FORA DE ORDEM
+        else {
+            temp.put(nCurrentMessage, currentMessage);
+
+            while (temp.get(nLastMessageInOrder + 1) != null) {
+                rececao.add(temp.get(nLastMessageInOrder + 1));
+                temp.remove(nLastMessageInOrder + 1);
+                nLastMessageInOrder++;
+            }
+        }
+
+        return nLastMessageInOrder;
     }
 
 
