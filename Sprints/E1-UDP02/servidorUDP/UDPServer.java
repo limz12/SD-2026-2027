@@ -67,6 +67,8 @@ public class UDPServer {
                         // Impressão do estado obrigatória para demonstração.
                         System.out.println("  -> L = " + L);
                         System.out.println("  -> Buffer temporario: " + pendingBuffer);
+                        System.out.println("  -> Lista de rececao (" + deliveredMessages.size() + "): "
+                                + deliveredMessages);
 
                         if (L != previousL) {
                             System.out.print("  -> Entregues neste passo: ");
