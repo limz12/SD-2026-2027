@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="PubSubReplica 3 no2" type="Application" factoryName="Application" nameIsGenerated="true">
+    <option name="MAIN_CLASS_NAME" value="rep01.PubSubReplica" />
+    <module name="rep01-replica" />
+    <option name="PROGRAM_PARAMETERS" value="3 5002" />
+    <option name="ALLOW_PARALLEL_RUN" value="true" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Sprints/E1-COMINDIR01/rep01-replica" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="PubSubLeader" type="Application" factoryName="Application" nameIsGenerated="true">
+    <option name="MAIN_CLASS_NAME" value="rep01.PubSubLeader" />
+    <module name="rep01-lider" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Sprints/E1-COMINDIR01/rep01-lider" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
