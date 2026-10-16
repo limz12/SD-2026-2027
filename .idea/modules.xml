@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/Repository.iml" filepath="$PROJECT_DIR$/.idea/Repository.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Sprints/E1-COMINDIR02/rep02-lider/src/rep02/rep02lider.iml" filepath="$PROJECT_DIR$/Sprints/E1-COMINDIR02/rep02-lider/src/rep02/rep02lider.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Sprints/E1-COMINDIR02/rep02-produtor/src/rep02/rep02produtor.iml" filepath="$PROJECT_DIR$/Sprints/E1-COMINDIR02/rep02-produtor/src/rep02/rep02produtor.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Sprints/E1-COMINDIR02/rep02-replica/src/rep02/rep02replica.iml" filepath="$PROJECT_DIR$/Sprints/E1-COMINDIR02/rep02-replica/src/rep02/rep02replica.iml" />
     </modules>
   </component>
 </project>
