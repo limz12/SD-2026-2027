@@ -8,7 +8,10 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
+import java.util.Set;
 import java.util.TreeMap;
 
 public class PartitionReplica {
@@ -31,7 +34,13 @@ public class PartitionReplica {
     static String replicaId;
     static IpfsPubSub ps;
 
-    // 5b+5c: mesma regra para PubSub e TCP — escreve / duplicado / retem.
+    // simulacao de perda apenas na rececao por PubSub
+    static double perda = 0.0;        // -Dperda
+    static long descartar = -1;       // -Ddescartar
+    static final Set<Long> descartados = new HashSet<>();
+    static final Random perdaRnd = new Random();
+
+    // mesma regra para PubSub e TCP — escreve / duplicado / retem.
     static void escreverEmSequencia(PartState st) throws IOException {
         while (!st.retidos.isEmpty() && st.retidos.firstKey() == st.ultimo + 1) {
             SensorRecord x = st.retidos.remove(st.ultimo + 1);
@@ -58,7 +67,7 @@ public class PartitionReplica {
         }
     }
 
-    // 5c: gatilho — so quando retidos > LIMITE_RETIDOS. Corre na mesma thread
+    // gatilho — so quando retidos > LIMITE_RETIDOS. Corre na mesma thread
     // da subscricao (bloqueia connect/readLine no maximo T_TCP_MS).
     static void recuperar(PartState st) {
         if (st.retidos.isEmpty()) {
@@ -122,6 +131,19 @@ public class PartitionReplica {
         }
         st.hostLider = parts[0];
         st.portoLider = porto;
+        long seq = r.getSeq();
+
+        // 5d: simulacao de perda apenas na rececao por PubSub
+        if (descartar >= 0 && seq == descartar && !descartados.contains(seq)) {
+            descartados.add(seq);
+            System.out.println("DESCARTADO p" + st.k + " (simulacao, primeira vez): " + seq);
+            return;
+        }
+        if (perda > 0.0 && perdaRnd.nextDouble() < perda) {
+            System.out.println("DESCARTADO p" + st.k + " (simulacao, perda): " + seq);
+            return;
+        }
+
         try {
             aplicar(st, r);
         } catch (IOException e) {
@@ -144,6 +166,10 @@ public class PartitionReplica {
         if (args.length > 2) {
             api = args[2].contains("http") ? args[2] : "http://127.0.0.1:" + args[2] + "/api/v0";
         }
+        String perdaProp = System.getProperty("perda");
+        perda = perdaProp != null ? Double.parseDouble(perdaProp) : 0.0;
+        String descartarProp = System.getProperty("descartar");
+        descartar = descartarProp != null ? Long.parseLong(descartarProp) : -1;
         ps = new IpfsPubSub(api);
 
         List<PartState> estados = new ArrayList<>();
