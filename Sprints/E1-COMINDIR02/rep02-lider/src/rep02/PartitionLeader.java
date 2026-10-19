@@ -50,6 +50,9 @@ public class PartitionLeader {
 
         int porto = Wire.PORTO_BASE + k;
 
+        // Particionador com N partições
+        final Partitioner partitioner = new Partitioner(N);
+
         IpfsPubSub ps = new IpfsPubSub(api);
 
         try {
@@ -123,6 +126,19 @@ public class PartitionLeader {
                                 return;
                             }
 
+                            // VERIFICAR SE O SENSOR PERTENCE
+                            // À PARTIÇÃO DESTE LÍDER
+                            int j = partitioner.of(sensor);
+
+                            if (j != k) {
+                                System.out.println(
+                                    "PARTIÇÃO ERRADA: "
+                                    + sensor
+                                    + " pertence a p" + j
+                                );
+                                return;
+                            }
+
                             SensorRecord r;
 
                             // Secção sincronizada:
@@ -182,7 +198,8 @@ public class PartitionLeader {
 
             entrada.setName("entrada-p" + k);
 
-            // SERVIDOR TCP: CRIAR ANTES DE INICIAR A THREAD
+            // CRIAR SERVIDOR TCP ANTES DE INICIAR
+            // A THREAD DE ENTRADA
             try (ServerSocket server = new ServerSocket(porto)) {
 
                 System.out.println(
@@ -190,8 +207,6 @@ public class PartitionLeader {
                     + "no porto " + porto
                 );
 
-                // Só inicia a entrada depois de conseguir
-                // abrir o porto de recuperação
                 entrada.start();
 
                 // THREAD PRINCIPAL: RECUPERAÇÃO TCP

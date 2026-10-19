@@ -8,18 +8,58 @@ import java.util.Scanner;
 public class Producer {
 
     static IpfsPubSub ipfs;
+    static Partitioner partitioner;
 
-    static void enviar(String sensor, double temp)
+    // Probabilidade de escolher S01 na rajada-quente
+    static final double PROB_QUENTE = 0.8;
+
+    static int enviar(String sensor, double temp)
             throws IOException, InterruptedException {
 
+        // Determina a partição do sensor
+        int k = partitioner.of(sensor);
+
         String mensagem = Wire.in(sensor, temp);
-        ipfs.publish(Wire.topicIn(0), mensagem);
+
+        // Publica no tópico correspondente à partição
+        ipfs.publish(Wire.topicIn(k), mensagem);
+
+        return k;
     }
 
     public static void main(String[] args) {
 
-        String api = args.length > 0
-                ? args[0]
+        // N obrigatório e API opcional
+        if (args.length < 1 || args.length > 2) {
+            System.out.println("Uso: Producer <N> [api]");
+            return;
+        }
+
+        // Validar número de partições
+        int N;
+
+        try {
+            N = Integer.parseInt(args[0]);
+
+            if (N <= 0) {
+                System.out.println(
+                    "Erro: N deve ser um inteiro positivo."
+                );
+                return;
+            }
+
+        } catch (NumberFormatException e) {
+            System.out.println(
+                "Erro: N deve ser um inteiro positivo."
+            );
+            return;
+        }
+
+        // Criar o particionador
+        partitioner = new Partitioner(N);
+
+        String api = args.length > 1
+                ? args[1]
                 : "http://127.0.0.1:5001/api/v0";
 
         ipfs = new IpfsPubSub(api);
@@ -29,12 +69,14 @@ public class Producer {
         try (Scanner sc = new Scanner(System.in)) {
 
             System.out.println(
-                "Produtor PubSub pronto (tópico "
-                + Wire.topicIn(0) + ", API " + api + ")."
+                "Produtor PubSub pronto ("
+                + N + " partições, API " + api + ")."
             );
 
             System.out.println(
-                "Comandos: <sensor> <temperatura> | rajada <n> <s> | sair"
+                "Comandos: <sensor> <temperatura> | "
+                + "rajada <n> <s> | "
+                + "rajada-quente <n> <s> | sair"
             );
 
             while (true) {
@@ -58,11 +100,19 @@ public class Producer {
 
                 String[] p = line.split("\\s+");
 
-                // Comando rajada
-                if (p[0].equalsIgnoreCase("rajada")) {
+                // Comandos rajada e rajada-quente
+                boolean quente =
+                    p[0].equalsIgnoreCase("rajada-quente");
+
+                boolean normal =
+                    p[0].equalsIgnoreCase("rajada");
+
+                if (normal || quente) {
 
                     if (p.length != 3) {
-                        System.out.println("Uso: rajada <n> <s>");
+                        System.out.println(
+                            "Uso: " + p[0] + " <n> <s>"
+                        );
                         continue;
                     }
 
@@ -73,78 +123,144 @@ public class Producer {
                         n = Integer.parseInt(p[1]);
                         s = Integer.parseInt(p[2]);
 
+                        // Validação dos valores
                         if (n <= 0 || s <= 0) {
                             System.out.println(
-                                "Erro: n e s devem ser inteiros positivos."
+                                "Erro: n e s devem ser "
+                                + "inteiros positivos."
+                            );
+                            continue;
+                        }
+
+                        // Na rajada-quente são necessários
+                        // pelo menos dois sensores
+                        if (quente && s < 2) {
+                            System.out.println(
+                                "Erro: rajada-quente exige s >= 2."
                             );
                             continue;
                         }
 
                     } catch (NumberFormatException e) {
                         System.out.println(
-                            "Erro: n e s devem ser inteiros positivos."
+                            "Erro: n e s devem ser inteiros."
                         );
                         continue;
                     }
 
-                    // Geração e publicação da rajada
+                    // Contadores por partição
+                    int[] contador = new int[N];
+
+                    // Instantes de publicação
                     long primeiro = 0;
                     long ultimo = 0;
 
+                    // Geração e publicação da rajada
                     for (int i = 0; i < n; i++) {
 
-                        int numero = rnd.nextInt(s) + 1;
+                        int numero;
 
-                        // Escolhe um dos s sensores
-                        String nSensor = String.format("S%02d", numero);
+                        if (quente) {
+
+                            // Rajada-quente:
+                            // 80% das vezes escolhe S01
+                            // 20% escolhe entre S02 e S<s>
+                            if (rnd.nextDouble() < PROB_QUENTE) {
+
+                                numero = 1;
+
+                            } else {
+
+                                numero = rnd.nextInt(s - 1) + 2;
+                            }
+
+                        } else {
+
+                            // Rajada normal:
+                            // escolha uniforme entre os s sensores
+                            numero = rnd.nextInt(s) + 1;
+                        }
+
+                        // Identificador do sensor
+                        String nSensor = String.format(
+                            "S%02d", numero
+                        );
 
                         // Temperatura aleatória entre 15 e 30
-                        double temp = 15 + rnd.nextDouble() * 15;
+                        double temp =
+                            15 + rnd.nextDouble() * 15;
 
                         if (i == 0) {
                             primeiro = System.currentTimeMillis();
                         }
 
-                        // Publica a leitura
-                        enviar(nSensor, temp);
+                        // Publica na partição calculada
+                        int k = enviar(nSensor, temp);
+
+                        // Incrementa o contador da partição
+                        contador[k]++;
 
                         // Instante após a publicação
-                        long instante = System.currentTimeMillis();
+                        ultimo = System.currentTimeMillis();
 
-                        ultimo = instante;
+                        System.out.println(
+                            "Leitura enviada: "
+                            + Wire.in(nSensor, temp)
+                            + " → p" + k
+                        );
                     }
 
-                    // Apresenta os resultados
+                    // Apresentar resultados
                     long dur = Math.max(1, ultimo - primeiro);
 
                     System.out.println(
-                        "Rajada de " + n + " leituras enviada."
+                        (quente ? "Rajada-quente" : "Rajada")
+                        + " de " + n + " leituras enviada."
                     );
 
                     System.out.println(
-                        "Primeira publicação: " + primeiro + " ms"
+                        "Primeira publicação: "
+                        + primeiro + " ms"
                     );
 
                     System.out.println(
-                        "Última publicação: " + ultimo + " ms"
+                        "Última publicação: "
+                        + ultimo + " ms"
                     );
 
                     System.out.println(
-                        "Tempo entre publicações: " + dur + " ms"
+                        "Tempo entre publicações: "
+                        + dur + " ms"
                     );
 
                     System.out.println(
                         "Débito aproximado: "
-                        + (n * 1000L / dur) + " leituras/s"
+                        + (n * 1000L / dur)
+                        + " leituras/s"
                     );
+
+                    // Totais por partição
+                    System.out.println(
+                        "Leituras enviadas por partição:"
+                    );
+
+                    for (int k = 0; k < N; k++) {
+
+                        System.out.println(
+                            "  p" + k + ": "
+                            + contador[k] + " leituras"
+                        );
+                    }
 
                     continue;
                 }
 
                 // Leitura normal
                 if (p.length != 2) {
+
                     System.out.println(
-                        "Formato inválido. Use: <sensor> <temperatura>"
+                        "Formato inválido. Use: "
+                        + "<sensor> <temperatura>"
                     );
                     continue;
                 }
@@ -155,6 +271,7 @@ public class Producer {
                     temp = Double.parseDouble(p[1]);
 
                     if (!Double.isFinite(temp)) {
+
                         System.out.println(
                             "Temperatura inválida: " + p[1]
                         );
@@ -162,16 +279,20 @@ public class Producer {
                     }
 
                 } catch (NumberFormatException e) {
+
                     System.out.println(
                         "Temperatura inválida: " + p[1]
                     );
                     continue;
                 }
 
-                enviar(p[0], temp);
+                // Publicar na partição do sensor
+                int k = enviar(p[0], temp);
 
                 System.out.println(
-                    "Leitura enviada: " + Wire.in(p[0], temp)
+                    "Leitura enviada: "
+                    + Wire.in(p[0], temp)
+                    + " → p" + k
                 );
             }
 

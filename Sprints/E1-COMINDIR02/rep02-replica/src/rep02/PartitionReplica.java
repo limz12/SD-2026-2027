@@ -66,13 +66,13 @@ public class PartitionReplica {
             if (n <= seq) {
 
                 System.out.println(
-                    "DUPLICADO: " + n
+                    "DUPLICADO: p" + k + " seq " + n
                 );
 
             } else if (retidos.containsKey(n)) {
 
                 System.out.println(
-                    "DUPLICADO: " + n
+                    "DUPLICADO: p" + k + " seq " + n
                 );
 
             } else if (n == seq + 1) {
@@ -85,7 +85,7 @@ public class PartitionReplica {
                 retidos.put(n, r);
 
                 System.out.println(
-                    "EM ESPERA: " + n
+                    "EM ESPERA: p" + k + " seq " + n
                 );
             }
         }
@@ -96,7 +96,8 @@ public class PartitionReplica {
             if (host == null || porto <= 0) {
 
                 System.out.println(
-                    "RECUPERAÇÃO FALHOU: líder desconhecido"
+                    "RECUPERAÇÃO FALHOU: p" + k
+                    + " líder desconhecido"
                 );
                 return;
             }
@@ -115,7 +116,8 @@ public class PartitionReplica {
             }
 
             System.out.println(
-                "RECUPERAÇÃO: " + de + ".." + ate
+                "RECUPERAÇÃO: p" + k + " "
+                + de + ".." + ate
                 + " pedida a " + host + ":" + porto
             );
 
@@ -197,7 +199,8 @@ public class PartitionReplica {
                         aplicar(r);
 
                         System.out.println(
-                            "RECUPERADO: " + r.getSeq()
+                            "RECUPERADO: p" + k
+                            + " seq " + r.getSeq()
                         );
                     }
 
@@ -215,8 +218,8 @@ public class PartitionReplica {
             } catch (IOException e) {
 
                 System.out.println(
-                    "RECUPERAÇÃO FALHOU: "
-                    + e.getMessage()
+                    "RECUPERAÇÃO FALHOU: p" + k
+                    + " " + e.getMessage()
                 );
             }
         }
@@ -232,7 +235,7 @@ public class PartitionReplica {
                 if (!Wire.type(msg).equals("REG")) {
 
                     System.out.println(
-                        "REJEITADO: " + msg
+                        "REJEITADO: p" + k + " " + msg
                     );
                     return;
                 }
@@ -267,7 +270,8 @@ public class PartitionReplica {
                     jaDescartado = true;
 
                     System.out.println(
-                        "DESCARTADO (simulação): " + n
+                        "DESCARTADO (simulação): p" + k
+                        + " seq " + n
                     );
                     return;
                 }
@@ -276,7 +280,8 @@ public class PartitionReplica {
                 if (Math.random() < perda) {
 
                     System.out.println(
-                        "DESCARTADO (simulação): " + n
+                        "DESCARTADO (simulação): p" + k
+                        + " seq " + n
                     );
                     return;
                 }
@@ -292,7 +297,7 @@ public class PartitionReplica {
             } catch (IllegalArgumentException e) {
 
                 System.out.println(
-                    "REJEITADO: " + msg
+                    "REJEITADO: p" + k + " " + msg
                 );
 
             } catch (IOException e) {
@@ -525,11 +530,17 @@ public class PartitionReplica {
             t.setName("replica-" + id + "-p" + estado.k);
             t.start();
 
-            System.out.println(
-                "Subscrição iniciada: "
-                + Wire.topicData(estado.k)
-                + " (seq atual = " + estado.seq + ")"
-            );
+            // Ler seq de forma sincronizada,
+            // pois a thread já está em execução
+            synchronized (estado) {
+
+                System.out.println(
+                    "Thread de subscrição lançada: "
+                    + Wire.topicData(estado.k)
+                    + " (p" + estado.k
+                    + ", seq atual = " + estado.seq + ")"
+                );
+            }
         }
 
         // Permitir consultar as métricas durante a execução
