@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="58d1d67a-5be6-4113-994d-5ce136a51a24" name="Changes" comment="Implementação alrmProcessor" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "limz12"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/limz12/SD-2026-2027.git",
+    "accountId": "a213afda-5fd4-4d7f-826f-68d36e324ee8"
+  }
+}]]></component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 6
+}]]></component>
+  <component name="ProjectId" id="3L3q1V7dWE7mcq6C0hFHomQOxUH" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Application.AlarmProcessor.executor": "Run",
+    "Application.CasualCheck.executor": "Run",
+    "Application.CausalCheck.executor": "Run",
+    "Application.Leader-p0.executor": "Run",
+    "Application.Leader-p1.executor": "Run",
+    "Application.Leader-p2.executor": "Run",
+    "Application.PartitionLeader.executor": "Run",
+    "Application.PartitionReplica-1.executor": "Run",
+    "Application.PartitionReplica-2.executor": "Run",
+    "Application.PartitionReplica-3.executor": "Run",
+    "Application.PartitionReplica.executor": "Run",
+    "Application.Producer.executor": "Run",
+    "Application.Produtor.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "SPRINT-E1-COMINDIR03-VascoLima",
+    "kotlin-language-version-configured": "true",
+    "nodejs_package_manager_path": "npm"
+  }
+}]]></component>
+  <component name="RunManager" selected="Application.CasualCheck">
+    <configuration name="AlarmProcessor" type="Application" factoryName="Application">
+      <option name="MAIN_CLASS_NAME" value="rep03.AlarmProcessor" />
+      <module name="rep03-processador" />
+      <option name="PROGRAM_PARAMETERS" value="3" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-processador/src/rep03" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="CasualCheck" type="Application" factoryName="Application">
+      <option name="MAIN_CLASS_NAME" value="rep03.CausalCheck" />
+      <module name="rep03-replica" />
+      <option name="PROGRAM_PARAMETERS" value="3 C:\Users\aulas\IdeaProjects\SD-2026-2027_new\Sprints\E1-COMINDIR03\rep03-lider\src\rep03" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-replica/src/rep03" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Leader-p0" type="Application" factoryName="Application" folderName="Lideres">
+      <option name="MAIN_CLASS_NAME" value="rep03.PartitionLeader" />
+      <module name="rep03-lider" />
+      <option name="PROGRAM_PARAMETERS" value="0 3 " />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-lider/src/rep03" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Leader-p1" type="Application" factoryName="Application" folderName="Lideres">
+      <option name="MAIN_CLASS_NAME" value="rep03.PartitionLeader" />
+      <module name="rep03-lider" />
+      <option name="PROGRAM_PARAMETERS" value="1 3" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-lider/src/rep03" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Leader-p2" type="Application" factoryName="Application" folderName="Lideres">
+      <option name="MAIN_CLASS_NAME" value="rep03.PartitionLeader" />
+      <module name="rep03-lider" />
+      <option name="PROGRAM_PARAMETERS" value="2 3" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-lider/src/rep03" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="PartitionReplica-1" type="Application" factoryName="Application" folderName="Replicas">
+      <option name="MAIN_CLASS_NAME" value="rep03.PartitionReplica" />
+      <module name="rep03-replica" />
+      <option name="PROGRAM_PARAMETERS" value="1 0,1" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-replica/src/rep03" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="PartitionReplica-2" type="Application" factoryName="Application" folderName="Replicas">
+      <option name="MAIN_CLASS_NAME" value="rep03.PartitionReplica" />
+      <module name="rep03-replica" />
+      <option name="PROGRAM_PARAMETERS" value="2 1" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-replica/src/rep03" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="PartitionReplica-3" type="Application" factoryName="Application" folderName="Replicas">
+      <option name="MAIN_CLASS_NAME" value="rep03.PartitionReplica" />
+      <module name="rep03-replica" />
+      <option name="PROGRAM_PARAMETERS" value="3 0" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-replica/src/rep03" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Produtor" type="Application" factoryName="Application">
+      <option name="MAIN_CLASS_NAME" value="rep03.Producer" />
+      <module name="rep03-produtor" />
+      <option name="PROGRAM_PARAMETERS" value="3" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-produtor/src/rep03" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <list>
+      <item itemvalue="Application.CasualCheck" />
+      <item itemvalue="Application.AlarmProcessor" />
+      <item itemvalue="Application.Produtor" />
+      <item itemvalue="Application.PartitionReplica-1" />
+      <item itemvalue="Application.PartitionReplica-2" />
+      <item itemvalue="Application.PartitionReplica-3" />
+      <item itemvalue="Application.Leader-p0" />
+      <item itemvalue="Application.Leader-p1" />
+      <item itemvalue="Application.Leader-p2" />
+    </list>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-a203e0a19954-intellij.indexing.shared.core-IU-262.10968.63" />
+        <option value="bundled-js-predefined-d6986cc7102b-4abd2a77f808-JavaScript-IU-262.10968.63" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="58d1d67a-5be6-4113-994d-5ce136a51a24" name="Changes" comment="" />
+      <created>1792692887371</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1792692887371</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Implementação alrmProcessor" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implementação alrmProcessor" />
+  </component>
+</project>
