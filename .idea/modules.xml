@@ -2,7 +2,11 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/Repository.iml" filepath="$PROJECT_DIR$/.idea/Repository.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/SD-2026-2027_new.iml" filepath="$PROJECT_DIR$/.idea/SD-2026-2027_new.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-lider/rep03-lider.iml" filepath="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-lider/rep03-lider.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-processador/rep03-processador.iml" filepath="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-processador/rep03-processador.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-produtor/rep03-produtor.iml" filepath="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-produtor/rep03-produtor.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-replica/rep03-replica.iml" filepath="$PROJECT_DIR$/Sprints/E1-COMINDIR03/rep03-replica/rep03-replica.iml" />
     </modules>
   </component>
 </project>
