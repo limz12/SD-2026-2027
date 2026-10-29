@@ -1,21 +1,22 @@
 package rep04;
 
 public final class Wire {
-    public static final int LIMITE_RETIDOS = 10;   // acima deste número de retidos, a réplica recupera
-    public static final int T_TCP_MS = 5000;       // tempo máximo de ligação e de espera por cada linha
-    public static final int PORTO_BASE = 7000;    // porto de recuperação do líder da partição k: 7000 + k
-    public static final float LIMIAR_ALARME = 28.0f;   // limiar de alarme para a temperatura
+    public static final int LIMITE_RETIDOS = 10;
+    public static final int T_TCP_MS = 5000;
+    public static final int PORTO_BASE = 7000;
+    public static final float LIMIAR_ALARME = 28.0f;
+
+    public static final int PERIODO_HB_MS = Integer.getInteger("rep04.periodo", 5000);
+    public static final int FATOR_TIMEOUT = Integer.getInteger("rep04.fator", 3);
+    public static final int VERIFICACAO_MS = 1000;
 
     private Wire() { }
 
-    public static String topicIn(int k)   { return "rep03-in-p" + k; }
-    public static String topicData(int k) { return "rep03-p" + k; }
+    public static String topicIn(int k)   { return "rep04-in-p" + k; }
+    public static String topicData(int k) { return "rep04-p" + k; }
 
-    public static String in(String sensor, double temp, long Lamport, VectorClock vc) { return "IN;" + sensor + ";" + temp + ";" + Lamport + ";" + vc.toString(); }
-
-    // REG;<endereço>;<porto>;<seq>;<sensor>;<temperatura>;<instante>;<L>;<V>;<L>;<V>
-    public static String reg(String host, int port, SensorRecord r) {
-        return "REG;" + host + ";" + port + ";" + r.toLine();
+    public static String in(String sensor, double temp, long Lamport, VectorClock vc) {
+        return "IN;" + sensor + ";" + temp + ";" + Lamport + ";" + vc.toString();
     }
 
     // tipo da mensagem (IN, REG); lança IllegalArgumentException se não houver tipo

@@ -7,8 +7,11 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
-
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 public class PartitionLeader {
 
     static final Object LOCK = new Object();
@@ -17,6 +20,11 @@ public class PartitionLeader {
     static long lamport;
     static VectorClock vector;
 
+    static long inc;
+    static long hb;
+
+    static List<SensorRecord> pendentes = new ArrayList<>();
+    static ScheduledExecutorService scheduler;
     static RecordFile file;
 
     static int k;
@@ -177,12 +185,13 @@ public class PartitionLeader {
                 lamport = novoLamport;
                 vector = novoVector;
 
+                pendentes.add(r);
+
                 System.out.println(
                     "EVENTO: seq=" + ultimoSeq
                     + " L=" + lamport
                     + " V=" + vector
                 );
-
             } catch (IOException e) {
 
                 System.out.println(
@@ -201,32 +210,9 @@ public class PartitionLeader {
             }
         }
 
-        // Publicar REG fora da secção sincronizada
-        try {
-
-            ps.publish(
-                Wire.topicData(k),
-                Wire.reg(hostAnunciado, porto, r)
-            );
-
-            System.out.println(
-                "Registado e publicado: "
-                + r.toLine()
-            );
-
-        } catch (IOException | InterruptedException e) {
-
-            System.out.println(
-                "Falha a publicar: "
-                + e.getMessage()
-            );
-
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-        }
+        // Não publica REG por registo: acumulado em pendentes,
+        // publicado em lote por enviarLote()
     }
-
     /**
      * Atende um pedido de recuperação TCP.
      */
@@ -343,6 +329,32 @@ public class PartitionLeader {
         }
     }
 
+    static void enviarLote() {
+        List<SensorRecord> lote;
+        long seqLote;
+        long hbLote;
+        synchronized (LOCK) {
+            lote = pendentes;
+            pendentes = new ArrayList<>();
+            seqLote = ultimoSeq;
+            hb = Math.addExact(hb, 1);
+            hbLote = hb;
+        }
+        Batch b = new Batch(hostAnunciado, porto, inc, hbLote, seqLote, lote);
+        String msg = b.encode();
+        long instant = System.currentTimeMillis();
+        try {
+            ps.publish(Wire.topicData(k), msg);
+            System.out.println("HEARTBEAT: hb=" + hbLote + " n=" + lote.size() + " ultimoSeq=" + seqLote);
+            try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("hb-p" + k + ".txt", true))) {
+                pw.println(inc + ";" + hbLote + ";" + instant + ";" + seqLote + ";" + lote.size() + ";" + msg.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
+            }
+        } catch (IOException | InterruptedException e) {
+            System.out.println("Falha a publicar lote: " + e.getMessage());
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+        }
+    }
+
     /**
      * Arranque do líder da partição.
      *
@@ -398,6 +410,9 @@ public class PartitionLeader {
             "lider-p" + k + ".txt", N
         );
 
+        inc = System.currentTimeMillis();
+        hb = 0;
+
         // Inicializar sequência e relógios
         // a partir do último registo persistido
         synchronized (LOCK) {
@@ -432,6 +447,9 @@ public class PartitionLeader {
         }
 
         ps = new IpfsPubSub(api);
+
+        scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.scheduleAtFixedRate(PartitionLeader::enviarLote, 0, Wire.PERIODO_HB_MS, TimeUnit.MILLISECONDS);
 
         // Thread de receção das mensagens IN
         Thread entrada = new Thread(() -> {

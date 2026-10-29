@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
-
+import java.io.FileWriter;
 public class PartitionReplica {
 
     static class PartState {
@@ -23,6 +23,7 @@ public class PartitionReplica {
         final TreeMap<Long, SensorRecord> retidos = new TreeMap<>();
         String hostLider;
         int portoLider = -1;
+        HeartbeatMonitor monitor;
 
         PartState(int k, RecordFile file, long ultimo) {
             this.k = k;
@@ -118,6 +119,65 @@ public class PartitionReplica {
         }
     }
 
+    static void logEvent(String line) {
+        String out = System.currentTimeMillis() + ";" + line;
+        System.out.println(out);
+        try (FileWriter fw = new FileWriter("monitor-replica" + replicaId + ".txt", true)) {
+            fw.write(out + "\n");
+        } catch (IOException ignored) {}
+    }
+
+    static void recuperarAte(PartState st, long ate) {
+        if (st.hostLider == null || st.portoLider < 0) {
+            System.out.println("RECUPERAÇÃO p" + st.k + " FALHOU: lider desconhecido");
+            return;
+        }
+        long de = st.ultimo + 1;
+        if (de > ate) return;
+        System.out.println("RECUPERAÇÃO p" + st.k + ": " + de + ".." + ate + " pedida a " + st.hostLider + ":" + st.portoLider);
+        try (Socket s = new Socket()) {
+            s.connect(new InetSocketAddress(st.hostLider, st.portoLider), Wire.T_TCP_MS);
+            s.setSoTimeout(Wire.T_TCP_MS);
+            PrintWriter out = new PrintWriter(s.getOutputStream(), true, StandardCharsets.UTF_8);
+            BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
+            out.println("PEDIDO " + de + " " + ate);
+            String linha;
+            while ((linha = in.readLine()) != null) {
+                String t = linha.trim();
+                if (t.equals("FIM")) {
+                    escreverEmSequencia(st);
+                    return;
+                }
+                if (t.startsWith("ERRO")) throw new IOException("lider respondeu: " + t);
+                SensorRecord r = SensorRecord.fromLine(t, N);
+                boolean eraNovo = r.getSeq() > st.ultimo && !st.retidos.containsKey(r.getSeq());
+                aplicar(st, r);
+                if (eraNovo) System.out.println("RECUPERADO p" + st.k + ": " + r.getSeq());
+            }
+            throw new IOException("ligacao fechada antes de FIM");
+        } catch (IOException e) {
+            System.out.println("RECUPERAÇÃO p" + st.k + " FALHOU: " + e.getMessage());
+        }
+    }
+
+    static void onLote(PartState st, String msg) {
+        String[] lines = msg.trim().split("\n");
+        String[] h = lines[0].trim().split(";");
+        int n = Integer.parseInt(h[6]);
+        Batch b = Batch.decode(msg, n);
+        st.hostLider = b.address;
+        st.portoLider = b.port;
+        if (st.monitor != null) st.monitor.onHeartbeat(b.inc, b.hb);
+        logEvent("RECEBIDO;p" + st.k + ";inc=" + b.inc + ";hb=" + b.hb + ";ultimoSeq=" + b.lastSeq + ";n=" + b.records.size());
+        for (SensorRecord r : b.records) {
+            try { aplicar(st, r); } catch (IOException e) { System.out.println("Falha a escrever p" + st.k + ": " + e.getMessage()); }
+        }
+        if (st.ultimo < b.lastSeq) {
+            recuperarAte(st, b.lastSeq);
+            logEvent("RECUPERACAO;p" + st.k + ";de=" + (st.ultimo + 1) + ";ate=" + b.lastSeq);
+        }
+    }
+
     static void onReg(PartState st, String msg) {
         String[] parts;
         SensorRecord r;
@@ -178,16 +238,16 @@ public class PartitionReplica {
             int k = Integer.parseInt(sk.trim());
             RecordFile f = new RecordFile("replica-" + replicaId + "-p" + k + ".txt", N);
             long ultimo = f.lastSeq();
-            estados.add(new PartState(k, f, ultimo));
-            System.out.println("Replica " + replicaId + " subscreve " + Wire.topicData(k) + " (lastSeq() = " + ultimo + ")");
+            PartState st = new PartState(k, f, ultimo);
+            st.monitor = new HeartbeatMonitor(k, Wire.PERIODO_HB_MS, Wire.FATOR_TIMEOUT, msg -> logEvent(msg));
+            estados.add(st);            System.out.println("Replica " + replicaId + " subscreve " + Wire.topicData(k) + " (lastSeq() = " + ultimo + ")");
         }
 
         List<Thread> threads = new ArrayList<>();
         for (PartState st : estados) {
             Thread t = new Thread(() -> {
                 try {
-                    ps.subscribe(Wire.topicData(st.k), msg -> onReg(st, msg));
-                } catch (IOException | InterruptedException e) {
+                    ps.subscribe(Wire.topicData(st.k), msg -> onLote(st, msg));                } catch (IOException | InterruptedException e) {
                     System.out.println("Subscricao p" + st.k + " terminada: " + e.getMessage());
                     if (e instanceof InterruptedException) {
                         Thread.currentThread().interrupt();
@@ -197,8 +257,17 @@ public class PartitionReplica {
             t.start();
             threads.add(t);
         }
+        Thread checker = new Thread(() -> {
+            while (true) {
+                for (PartState st : estados) {
+                    if (st.monitor != null) st.monitor.check();
+                }
+                try { Thread.sleep(Wire.VERIFICACAO_MS); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+            }
+        }, "checker");
+        checker.setDaemon(true);
+        checker.start();
         for (Thread t : threads) {
             t.join();
-        }
-    }
+        }    }
 }
