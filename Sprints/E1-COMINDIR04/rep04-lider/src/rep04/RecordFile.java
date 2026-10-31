@@ -40,6 +40,25 @@ public class RecordFile {
     }
 
     /**
+     * Acrescenta uma linha de texto crua ao fim do ficheiro.
+     * Cria o ficheiro caso ainda não exista.
+     *
+     * Utilizada para o registo de heartbeats (hb-p<k>.txt),
+     * cujas linhas não são registos de sensores.
+     */
+    public synchronized void appendLine(String line)
+            throws IOException {
+
+        Files.writeString(
+            path,
+            line + System.lineSeparator(),
+            StandardCharsets.UTF_8,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.APPEND
+        );
+    }
+
+    /**
      * Devolve o último registo guardado.
      *
      * Se o ficheiro não existir ou estiver vazio,

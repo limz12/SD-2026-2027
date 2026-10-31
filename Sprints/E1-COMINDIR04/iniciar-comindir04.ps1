@@ -1,16 +1,20 @@
-# Arranque local dos quatro projetos COMINDIR03.
+# Arranque local dos quatro projetos COMINDIR04.
 # Compilacao e preparacao dos ensaios; conserva os dados.
 [CmdletBinding()]
 param(
     [string]$KuboPath,
     [string]$JavaHome,
     [ValidateSet(3)][int]$Particoes = 3,
-    [ValidateSet('Tudo','Lider','Processador','Produtor','CausalCheck','PartitionCheck')]
+    [ValidateSet('Tudo','Lider','Processador','Produtor','CausalCheck','PartitionCheck','HeartbeatCheck')]
     [string]$Acao = 'Tudo',
     [ValidateRange(0,2)][int]$Lider = 2,
     [string]$PastaDados = 'dados-n3',
+    [string]$Falhas = 'falhas.txt',
+    [ValidateRange(100,60000)][long]$PeriodoHb = 5000,
+    [ValidateRange(1,10)][int]$FatorTimeout = 3,
     [switch]$SemProcessador,
     [ValidateRange(0,1)][double]$PerdaReplica3 = 0,
+    [switch]$ComPausas,
     [switch]$Verificar
 )
 
@@ -21,9 +25,15 @@ $dataRoot = if ([IO.Path]::IsPathRooted($PastaDados)) {
 } else {
     [IO.Path]::GetFullPath((Join-Path $sprintRoot $PastaDados))
 }
-$buildRoot = Join-Path $env:LOCALAPPDATA ("SD-COMINDIR03\build\" + [guid]::NewGuid().ToString('N'))
+$buildRoot = Join-Path $env:LOCALAPPDATA ("SD-COMINDIR04\build\" + [guid]::NewGuid().ToString('N'))
 $toolsRoot = Join-Path $sprintRoot '.tools'
 $api = 'http://127.0.0.1:5001/api/v0'
+$culturaInvariant = [Globalization.CultureInfo]::InvariantCulture
+# Propriedades de sistema dos batimentos — aplicadas a TODOS os processos
+$sysProps = @(
+    ('-Drep04.periodo=' + $PeriodoHb.ToString($culturaInvariant)),
+    ('-Drep04.fator=' + $FatorTimeout.ToString($culturaInvariant))
+)
 
 # 1. Ferramentas e compilacao. Os binarios ficam fora do repositorio.
 function Find-JavaTool([string]$Name) {
@@ -93,8 +103,8 @@ function Resolve-Kubo {
 try {
     $java = Find-JavaTool 'java'
     $javac = Find-JavaTool 'javac'
-    foreach ($project in @('rep03-produtor', 'rep03-lider', 'rep03-replica', 'rep03-processador')) {
-        $source = Join-Path $sprintRoot "$project\src\rep03"
+    foreach ($project in @('rep04-produtor', 'rep04-lider', 'rep04-replica', 'rep04-processador')) {
+        $source = Join-Path $sprintRoot "$project\src\rep04"
         $sources = @(Get-ChildItem -LiteralPath $source -Filter '*.java' -File | ForEach-Object FullName)
         if (!$sources.Count) { throw "Sem ficheiros Java em $source" }
         $output = Join-Path $buildRoot $project
@@ -104,7 +114,7 @@ try {
         Write-Host "Compilado: $project" -ForegroundColor Green
     }
 
-    Write-Host "`nParticoes: $Particoes | API: $api"
+    Write-Host "`nParticoes: $Particoes | API: $api | periodo=$PeriodoHb ms | fator=$FatorTimeout"
     Write-Host "Dados: $dataRoot"
     Write-Host "Classes: $buildRoot"
     if ($Verificar) {
@@ -112,15 +122,20 @@ try {
         exit 0
     }
 
-    $replicaBuild = Join-Path $buildRoot 'rep03-replica'
-    $leaderBuild = Join-Path $buildRoot 'rep03-lider'
-    $producerBuild = Join-Path $buildRoot 'rep03-produtor'
-    $processorBuild = Join-Path $buildRoot 'rep03-processador'
-    if ($Acao -in @('CausalCheck','PartitionCheck')) {
+    $replicaBuild = Join-Path $buildRoot 'rep04-replica'
+    $leaderBuild = Join-Path $buildRoot 'rep04-lider'
+    $producerBuild = Join-Path $buildRoot 'rep04-produtor'
+    $processorBuild = Join-Path $buildRoot 'rep04-processador'
+    if ($Acao -in @('CausalCheck','PartitionCheck','HeartbeatCheck')) {
         if (!(Test-Path -LiteralPath $dataRoot -PathType Container)) {
             throw "Pasta de dados inexistente: $dataRoot"
         }
-        & $java -cp $replicaBuild "rep03.$Acao" "$Particoes" $dataRoot
+        $toolArgs = @($sysProps) + @('-cp', $replicaBuild, "rep04.$Acao", "$Particoes", $dataRoot)
+        if ($Acao -eq 'HeartbeatCheck') {
+            $falhasPath = if ([IO.Path]::IsPathRooted($Falhas)) { $Falhas } else { Join-Path $dataRoot $Falhas }
+            if (Test-Path -LiteralPath $falhasPath) { $toolArgs += $falhasPath }
+        }
+        & $java $toolArgs
         if ($LASTEXITCODE -ne 0) { throw "Falha a executar $Acao." }
         exit 0
     }
@@ -133,9 +148,10 @@ try {
 
     # 2. Kubo local. Um repositorio proprio evita alterar o IPFS do utilizador.
     New-Item -ItemType Directory -Path $dataRoot -Force | Out-Null
+    New-Item -ItemType Directory -Path $toolsRoot -Force | Out-Null
     if (!(Test-Kubo)) {
         $ipfs = Resolve-Kubo
-        $repo = Join-Path $toolsRoot 'ipfs-repo-comindir03'
+        $repo = Join-Path $toolsRoot 'ipfs-repo-comindir04'
         $previousRepo = $env:IPFS_PATH
         try {
             $env:IPFS_PATH = $repo
@@ -149,7 +165,8 @@ try {
                 @('Bootstrap','[]'),
                 @('Addresses.Swarm','[]'),
                 @('Discovery.MDNS.Enabled','false'),
-                @('Peering.Peers','[]')
+                @('Peering.Peers','[]'),
+                @('AutoTLS.Enabled','false')
             )
             foreach ($setting in $settings) {
                 & $ipfs config --json $setting[0] $setting[1]
@@ -158,7 +175,9 @@ try {
             & $ipfs config Routing.Type none
             if ($LASTEXITCODE -ne 0) { throw 'Falha a configurar Routing.Type.' }
         } finally { $env:IPFS_PATH = $previousRepo }
-        Open-Console 'COMINDIR03 - Kubo' $ipfs @('daemon', '--enable-pubsub-experiment') $repo
+        # PubSub.Enabled=true e imposto na configuracao acima; a flag
+        # --enable-pubsub-experiment e deprecated no Kubo recente.
+        Open-Console 'COMINDIR04 - Kubo' $ipfs @('daemon') $repo
         $deadline = [DateTime]::UtcNow.AddSeconds(45)
         while (!(Test-Kubo)) {
             if ([DateTime]::UtcNow -gt $deadline) { throw 'Kubo nao ficou pronto. Consulta a consola Kubo.' }
@@ -169,40 +188,54 @@ try {
     }
 
     if ($Acao -eq 'Lider') {
-        Open-Console "COMINDIR03 - Lider p$Lider" $java @('-cp', $leaderBuild, 'rep03.PartitionLeader', "$Lider", "$Particoes", '127.0.0.1', $api)
+        Open-Console "COMINDIR04 - Lider p$Lider" $java ($sysProps + @('-cp', $leaderBuild, 'rep04.PartitionLeader', "$Lider", "$Particoes", '127.0.0.1', $api))
         exit 0
     }
     if ($Acao -eq 'Processador') {
-        Open-Console 'COMINDIR03 - Processador' $java @('-cp', $processorBuild, 'rep03.AlarmProcessor', "$Particoes", $api)
+        Open-Console 'COMINDIR04 - Processador' $java ($sysProps + @('-cp', $processorBuild, 'rep04.AlarmProcessor', "$Particoes", $api))
         exit 0
     }
     if ($Acao -eq 'Produtor') {
-        Open-Console 'COMINDIR03 - Produtor' $java @('-cp', $producerBuild, 'rep03.Producer', "$Particoes", $api)
+        Open-Console 'COMINDIR04 - Produtor' $java ($sysProps + @('-cp', $producerBuild, 'rep04.Producer', "$Particoes", $api))
         exit 0
     }
 
     # 3. Replicas, lideres, processador e produtor.
     $assignments = if ($Particoes -eq 3) { @('0,1','1,2','2,0') } else { @('0','0','0') }
-    $replicaBuild = Join-Path $buildRoot 'rep03-replica'
-    $leaderBuild = Join-Path $buildRoot 'rep03-lider'
-    $producerBuild = Join-Path $buildRoot 'rep03-produtor'
     for ($id = 1; $id -le 3; $id++) {
-        $javaArgs = @('-cp', $replicaBuild)
-        if ($id -eq 3) { $javaArgs += '-Dperda=' + $PerdaReplica3.ToString([Globalization.CultureInfo]::InvariantCulture) }
-        $javaArgs += @('rep03.PartitionReplica', "$id", $assignments[$id - 1], $api)
-        Open-Console "COMINDIR03 - Replica $id" $java $javaArgs
+        $javaArgs = @($sysProps) + @('-cp', $replicaBuild)
+        if ($id -eq 3) { $javaArgs += '-Dperda=' + $PerdaReplica3.ToString($culturaInvariant) }
+        $javaArgs += @('rep04.PartitionReplica', "$id", $assignments[$id - 1], $api)
+        Open-Console "COMINDIR04 - Replica $id" $java $javaArgs
     }
-    Read-Host 'Confirma as subscricoes nas tres consolas das replicas. Enter para abrir os lideres' | Out-Null
+    if ($ComPausas) {
+        Read-Host 'Confirma as subscricoes nas tres consolas das replicas (ENTER para abrir os lideres)' | Out-Null
+    } else {
+        Start-Sleep -Seconds 3
+    }
     for ($k = 0; $k -lt $Particoes; $k++) {
-        Open-Console "COMINDIR03 - Lider p$k" $java @('-cp', $leaderBuild, 'rep03.PartitionLeader', "$k", "$Particoes", '127.0.0.1', $api)
+        Open-Console "COMINDIR04 - Lider p$k" $java ($sysProps + @('-cp', $leaderBuild, 'rep04.PartitionLeader', "$k", "$Particoes", '127.0.0.1', $api))
     }
-    Read-Host 'Confirma os portos e subscricoes dos lideres. Enter para continuar' | Out-Null
+    if ($ComPausas) {
+        Read-Host 'Confirma os HEARTBEAT nas consolas dos lideres (ENTER para continuar)' | Out-Null
+    } else {
+        Start-Sleep -Seconds 3
+    }
     if (!$SemProcessador) {
-        Open-Console 'COMINDIR03 - Processador' $java @('-cp', $processorBuild, 'rep03.AlarmProcessor', "$Particoes", $api)
-        Read-Host 'Confirma as tres subscricoes do processador. Enter para abrir o produtor' | Out-Null
+        Open-Console 'COMINDIR04 - Processador' $java ($sysProps + @('-cp', $processorBuild, 'rep04.AlarmProcessor', "$Particoes", $api))
+        if ($ComPausas) {
+            Read-Host 'Confirma as tres subscricoes do processador (ENTER para abrir o produtor)' | Out-Null
+        } else {
+            Start-Sleep -Seconds 3
+        }
     }
-    Open-Console 'COMINDIR03 - Produtor' $java @('-cp', $producerBuild, 'rep03.Producer', "$Particoes", $api)
+    Open-Console 'COMINDIR04 - Produtor' $java ($sysProps + @('-cp', $producerBuild, 'rep04.Producer', "$Particoes", $api))
     Write-Host 'Consolas abertas. Os ficheiros de dados existentes foram conservados.' -ForegroundColor Green
+    Write-Host 'Verificacao (todos os processos com o mesmo -Drep04.periodo):' -ForegroundColor Green
+    Write-Host '  .\iniciar-comindir04.cmd -Verificar -PastaDados dados-test -PeriodoHb 5000 -FatorTimeout 3' -ForegroundColor Green
+    Write-Host 'Relatorios:' -ForegroundColor Green
+    Write-Host '  .\iniciar-comindir04.cmd -Acao HeartbeatCheck -PastaDados dados-test -Falhas falhas.txt' -ForegroundColor Green
+    Write-Host '  .\iniciar-comindir04.cmd -Acao CausalCheck -PastaDados dados-test' -ForegroundColor Green
 } catch {
     Write-Host "ERRO: $($_.Exception.Message)" -ForegroundColor Red
     exit 1

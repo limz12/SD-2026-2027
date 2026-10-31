@@ -7,7 +7,11 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class PartitionLeader {
 
@@ -18,6 +22,12 @@ public class PartitionLeader {
     static VectorClock vector;
 
     static RecordFile file;
+
+    // COMINDIR04: batimentos
+    static long inc;                                   // encarnação: System.currentTimeMillis() no arranque
+    static long hb = 0;                                // contador de heartbeats
+    static List<SensorRecord> pendentes = new ArrayList<>();
+    static RecordFile hbFile;                          // hb-p<k>.txt
 
     static int k;
     static int N;
@@ -177,6 +187,9 @@ public class PartitionLeader {
                 lamport = novoLamport;
                 vector = novoVector;
 
+                // 8. Registos pendentes para o próximo LOTE
+                pendentes.add(r);
+
                 System.out.println(
                     "EVENTO: seq=" + ultimoSeq
                     + " L=" + lamport
@@ -200,25 +213,66 @@ public class PartitionLeader {
                 return;
             }
         }
+    }
 
-        // Publicar REG fora da secção sincronizada
+    /**
+     * Publica um LOTE com os registos pendentes no tópico de dados
+     * e regista o heartbeat em hb-p<k>.txt.
+     *
+     * Executa periodicamente na thread do scheduler.
+     * A troca de pendentes e a leitura da sequência decorrem
+     * dentro do LOCK; a publicação decorre FORA do LOCK.
+     */
+    static void enviarLote() {
+
+        List<SensorRecord> lote;
+        long lastSeq;
+        long novoHb;
+
+        // SECÇÃO SINCRONIZADA: trocar pendentes e contar o heartbeat
+        synchronized (LOCK) {
+
+            lote = pendentes;
+            pendentes = new ArrayList<>();
+
+            lastSeq = ultimoSeq;
+
+            hb++;
+            novoHb = hb;
+        }
+
+        // Publicação e registo FORA da secção sincronizada
         try {
 
-            ps.publish(
-                Wire.topicData(k),
-                Wire.reg(hostAnunciado, porto, r)
+            Batch mensagem = new Batch(
+                hostAnunciado, porto, inc, novoHb, lastSeq, lote
+            );
+
+            String texto = mensagem.encode();
+
+            ps.publish(Wire.topicData(k), texto);
+
+            long bytes = texto.getBytes(StandardCharsets.UTF_8).length;
+
+            hbFile.appendLine(
+                inc + ";" + novoHb + ";"
+                + System.currentTimeMillis() + ";"
+                + lastSeq + ";" + lote.size() + ";" + bytes
             );
 
             System.out.println(
-                "Registado e publicado: "
-                + r.toLine()
+                "HEARTBEAT: hb=" + novoHb
+                + " n=" + lote.size()
+                + " ultimoSeq=" + lastSeq
             );
 
-        } catch (IOException | InterruptedException e) {
+        } catch (Exception e) {
 
+            // Falha a publicar: os registos NÃO são recolocados
+            // em pendentes; os consumidores recuperam por ultimoSeq.
             System.out.println(
-                "Falha a publicar: "
-                + e.getMessage()
+                "Falha a publicar o lote hb=" + novoHb
+                + ": " + e.getMessage()
             );
 
             if (e instanceof InterruptedException) {
@@ -432,6 +486,19 @@ public class PartitionLeader {
         }
 
         ps = new IpfsPubSub(api);
+
+        // COMINDIR04: ficheiro de heartbeats, encarnação e
+        // scheduler que publica um LOTE de PERIODO_HB_MS em PERIODO_HB_MS
+        hbFile = new RecordFile("hb-p" + k + ".txt", N);
+
+        inc = System.currentTimeMillis();
+
+        ScheduledExecutorService sched = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "heartbeat-p" + k);
+            t.setDaemon(true);
+            return t;
+        });
+        sched.scheduleAtFixedRate(PartitionLeader::enviarLote, 0, Wire.PERIODO_HB_MS, TimeUnit.MILLISECONDS);
 
         // Thread de receção das mensagens IN
         Thread entrada = new Thread(() -> {

@@ -1,6 +1,10 @@
 package rep04;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -19,127 +23,154 @@ public class AlarmProcessor {
     // Sequências já recebidas em cada partição
     static Set<Long>[] recebidos;
 
+    // COMINDIR04: monitores de batimentos, um por partição
+    static HeartbeatMonitor[] monitors;
+    static final Path MONITOR_FILE = Paths.get("monitor-processador.txt");
+
     /**
-     * Processa uma mensagem REG recebida
+     * Escreve um evento em monitor-processador.txt com o instante
+     * físico atual como prefixo, e imprime-o na consola.
+     *
+     * Formato da linha: instante;EVENTO;p<k>;detalhes...
+     */
+    static synchronized void logEvento(String evento) {
+        System.out.println(evento);
+        try {
+            Files.writeString(
+                MONITOR_FILE,
+                System.currentTimeMillis() + ";" + evento
+                    + System.lineSeparator(),
+                java.nio.charset.StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND
+            );
+        } catch (IOException e) {
+            System.out.println(
+                "Falha a registar evento no monitor: " + e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Processa uma mensagem LOTE recebida
      * de uma determinada partição.
      */
-    static void onReg(int k, String msg) {
+    static void onLote(int k, String msg) {
 
-        SensorRecord r;
+        Batch batch;
 
         try {
-
-            // Verificar o tipo da mensagem
-            if (!Wire.type(msg).equals("REG")) {
-
-                System.out.println(
-                    "REJEITADO: p" + k + " " + msg
-                );
-                return;
-            }
-
-            // Separar host, porto e registo
-            String[] partes = Wire.regParts(msg);
-
-            // Reconstruir o registo com os relógios
-            r = SensorRecord.fromLine(partes[2], N);
-
+            batch = Batch.decode(msg, N);
         } catch (IllegalArgumentException e) {
-
             System.out.println(
-                "REJEITADO: p" + k + " " + msg
+                "REJEITADO: p" + k + " (" + e.getMessage() + ")"
             );
             return;
         }
 
-        String sensor = r.getSensorId();
-        long seq = r.getSeq();
+        // Atualizar o monitor de batimentos do líder p<k>
+        monitors[k].onHeartbeat(batch.getInc(), batch.getHb());
 
-        // Ignorar registos de alarmes antes
-        // de atualizar os relógios do processador
-        if (sensor.startsWith("ALARM-")) {
-            return;
-        }
+        for (SensorRecord r : batch.getRecords()) {
 
-        // Relógios a utilizar no eventual alarme
-        long novoLp;
-        VectorClock novoVp;
+            String sensor = r.getSensorId();
+            long seq = r.getSeq();
 
-        // SECÇÃO SINCRONIZADA
-        synchronized (LOCK) {
-
-            // Ignorar duplicados da mesma partição
-            if (recebidos[k].contains(seq)) {
-
-                System.out.println(
-                    "DUPLICADO: p" + k + " seq " + seq
-                );
-                return;
+            // Ignorar registos de alarmes antes
+            // de atualizar os relógios do processador
+            if (sensor.startsWith("ALARM-")) {
+                continue;
             }
 
-            // Marcar o registo como recebido
-            recebidos[k].add(seq);
+            // Relógios a utilizar no eventual alarme
+            long novoLp;
+            VectorClock novoVp;
 
-            // Atualizar o relógio de Lamport
-            Lp = Math.max(Lp, r.getLamport());
+            // SECÇÃO SINCRONIZADA
+            synchronized (LOCK) {
 
-            // Atualizar o relógio vetorial
-            Vp.merge(r.getVector());
+                // Ignorar duplicados da mesma partição
+                if (recebidos[k].contains(seq)) {
 
-            // Guardar um estado consistente
-            novoLp = Lp;
-            novoVp = Vp.copy();
-        }
+                    System.out.println(
+                        "DUPLICADO: p" + k + " seq " + seq
+                    );
+                    continue;
+                }
 
-        // Verificar se a temperatura atinge
-        // o limiar definido na classe Wire
-        if (r.getTemperature() < Wire.LIMIAR_ALARME) {
-            return;
-        }
+                // Marcar o registo como recebido
+                recebidos[k].add(seq);
 
-        // Construir o identificador do alarme
-        String sensorAlarme = "ALARM-" + sensor;
+                // Atualizar o relógio de Lamport
+                Lp = Math.max(Lp, r.getLamport());
 
-        // Determinar a partição de destino
-        int j = partitioner.of(sensorAlarme);
+                // Atualizar o relógio vetorial
+                Vp.merge(r.getVector());
 
-        // Criar a mensagem IN com os relógios
-        String mensagem = Wire.in(
-            sensorAlarme,
-            r.getTemperature(),
-            novoLp,
-            novoVp
-        );
+                // Guardar um estado consistente
+                novoLp = Lp;
+                novoVp = Vp.copy();
+            }
 
-        // Publicação fora da secção sincronizada
-        try {
+            // Verificar se a temperatura atinge
+            // o limiar definido na classe Wire
+            if (r.getTemperature() < Wire.LIMIAR_ALARME) {
+                continue;
+            }
 
-            ps.publish(
-                Wire.topicIn(j),
-                mensagem
+            // Construir o identificador do alarme
+            String sensorAlarme = "ALARM-" + sensor;
+
+            // Determinar a partição de destino
+            int j = partitioner.of(sensorAlarme);
+
+            // Avisar quando o líder de destino está suspeito:
+            // detetar a falha não é recuperar o alarme
+            if (monitors[j].state() == HeartbeatMonitor.State.SUSPEITO) {
+                System.out.println(
+                    "AVISO: líder p" + j + " suspeito; alarme "
+                    + sensor + " pode perder-se"
+                );
+            }
+
+            // Criar a mensagem IN com os relógios
+            String mensagem = Wire.in(
+                sensorAlarme,
+                r.getTemperature(),
+                novoLp,
+                novoVp
             );
 
-            System.out.println(
-                "ALARME: " + sensor
-                + " p" + k + "#" + seq
-                + " → p" + j
-            );
+            // Publicação fora da secção sincronizada
+            try {
 
-        } catch (IOException e) {
+                ps.publish(
+                    Wire.topicIn(j),
+                    mensagem
+                );
 
-            System.out.println(
-                "Falha a publicar alarme de "
-                + sensor + ": " + e.getMessage()
-            );
+                System.out.println(
+                    "ALARME: " + sensor
+                    + " p" + k + "#" + seq
+                    + " → p" + j
+                );
 
-        } catch (InterruptedException e) {
+            } catch (IOException e) {
 
-            System.out.println(
-                "Publicação do alarme interrompida: "
-                + e.getMessage()
-            );
+                System.out.println(
+                    "Falha a publicar alarme de "
+                    + sensor + ": " + e.getMessage()
+                );
 
-            Thread.currentThread().interrupt();
+            } catch (InterruptedException e) {
+
+                System.out.println(
+                    "Publicação do alarme interrompida: "
+                    + e.getMessage()
+                );
+
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
@@ -204,6 +235,17 @@ public class AlarmProcessor {
             recebidos[k] = new HashSet<>();
         }
 
+        // COMINDIR04: um monitor de batimentos por partição.
+        // Os eventos vão para a consola e para monitor-processador.txt.
+        monitors = new HeartbeatMonitor[N];
+
+        for (int k = 0; k < N; k++) {
+            monitors[k] = new HeartbeatMonitor(
+                k, Wire.PERIODO_HB_MS, Wire.FATOR_TIMEOUT,
+                AlarmProcessor::logEvento
+            );
+        }
+
         System.out.println(
             "Processador de alarmes iniciado."
         );
@@ -226,6 +268,28 @@ public class AlarmProcessor {
             + " Vp=" + Vp
         );
 
+        // COMINDIR04: thread de verificação que verifica
+        // periodicamente o silêncio de todos os líderes
+        Thread verificacao = new Thread(() -> {
+
+            while (true) {
+
+                try {
+                    Thread.sleep(Wire.VERIFICACAO_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+
+                for (int k = 0; k < N; k++) {
+                    monitors[k].check();
+                }
+            }
+
+        }, "verificacao");
+        verificacao.setDaemon(true);
+        verificacao.start();
+
         // Uma thread de subscrição por partição
         for (int i = 0; i < N; i++) {
 
@@ -237,7 +301,7 @@ public class AlarmProcessor {
 
                     ps.subscribe(
                         Wire.topicData(k),
-                        msg -> onReg(k, msg)
+                        msg -> onLote(k, msg)
                     );
 
                 } catch (IOException e) {
