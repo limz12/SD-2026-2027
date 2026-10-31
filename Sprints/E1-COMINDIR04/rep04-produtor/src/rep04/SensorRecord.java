@@ -1,132 +1,75 @@
 package rep04;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 /**
- * Representa um registo de sensor.
- *
- * O registo não é Serializable, pois é guardado e transmitido
- * como uma linha de texto, em vez de um objeto Java.
- *
- * Formato:
+ * Registo de sensor com carimbos de tempo lógico. Linha:
  * seq;sensor;temperatura;instante;L;V
- *
- * L representa o relógio lógico de Lamport.
- * V representa o relógio vetorial.
- *
- * O líder e as réplicas apenas precisam de conhecer
- * o formato da linha para interpretar os registos.
+ * L = relógio de Lamport no evento (atribuição do seq pelo líder)
+ * V = relógio vetorial no evento; V[k] == seq, em que k é a partição do
+ * registo.
+ * O ";" separa campos e a "," separa as componentes do vetor, por isso uma
+ * linha continua a ter 6 campos.
  */
 public class SensorRecord {
-
     private final long seq;
     private final String sensorId;
     private final double temperature;
     private final String timestamp;
-
-    // Relógios lógicos
     private final long lamport;
     private final VectorClock vector;
 
-    /**
-     * Cria um registo com os dados do sensor
-     * e os respetivos relógios lógicos.
-     *
-     * O relógio vetorial é copiado para impedir
-     * alterações posteriores ao vetor do registo.
-     */
-    public SensorRecord(
-            long seq,
-            String sensorId,
-            double temperature,
-            String timestamp,
-            long lamport,
-            VectorClock vector) {
-
+    public SensorRecord(long seq, String sensorId, double temperature, String timestamp,
+            long lamport, VectorClock vector) {
         this.seq = seq;
         this.sensorId = sensorId;
         this.temperature = temperature;
         this.timestamp = timestamp;
-
         this.lamport = lamport;
-        this.vector = vector.copy();
+        this.vector = vector;
     }
 
-    /**
-     * Cria um registo com o instante atual.
-     * Utilizado pelo líder.
-     */
-    public static SensorRecord now(
-            long seq,
-            String sensorId,
-            double temperature,
-            long lamport,
-            VectorClock vector) {
-
-        return new SensorRecord(
-            seq,
-            sensorId,
-            temperature,
-            LocalDateTime.now().withNano(0).toString(),
-            lamport,
-            vector
-        );
+    // cria um registo com o instante atual (usado só pelo líder). O vetor deve ser
+    // uma CÓPIA.
+    // O instante tem resolução de MILISSEGUNDOS (na COMINDIR03 era de segundos): a
+    // latência de lote
+    // (receção do lote menos instante do registo) é da ordem de segundos, e uma
+    // resolução de 1 s
+    // introduziria nela um erro de até 1 s.
+    public static SensorRecord now(long seq, String sensorId, double temperature, long lamport, VectorClock vector) {
+        return new SensorRecord(seq, sensorId, temperature,
+                LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS).toString(),
+                lamport, vector);
     }
 
-    /**
-     * Converte o registo numa linha de texto.
-     *
-     * Formato:
-     * seq;sensor;temperatura;instante;L;V
-     */
     public String toLine() {
-
-        return seq + ";"
-                + sensorId + ";"
-                + temperature + ";"
-                + timestamp + ";"
-                + lamport + ";"
-                + vector.toString();
+        return seq + ";" + sensorId + ";" + temperature + ";" + timestamp + ";" + lamport + ";" + vector;
     }
 
-    /**
-     * Reconstrói um registo a partir de uma linha de texto.
-     *
-     * N indica o número de partições do sistema
-     * e é utilizado para reconstruir o relógio vetorial.
-     *
-     * Lança IllegalArgumentException quando
-     * a linha não apresenta um formato válido.
-     */
-    public static SensorRecord fromLine(String line, int N) {
-
-        String[] f = line.trim().split(";", -1);
-
+    // a dimensão do vetor é deduzida da própria linha (as réplicas não precisam de
+    // conhecer N)
+    public static SensorRecord fromLine(String line) {
+        String[] f = line.trim().split(";");
         if (f.length != 6) {
-            throw new IllegalArgumentException(
-                "Registo mal formado: " + line
-            );
+            throw new IllegalArgumentException("Registo mal formado: " + line);
         }
+        return build(f, f[5].split(",").length);
+    }
 
-        long seq = Long.parseLong(f[0]);
-        String sensorId = f[1];
-        double temperature = Double.parseDouble(f[2]);
-        String timestamp = f[3];
+    // idem, mas exige a dimensão n (usado pelo líder e pelo processador, que
+    // conhecem N)
+    public static SensorRecord fromLine(String line, int n) {
+        String[] f = line.trim().split(";");
+        if (f.length != 6) {
+            throw new IllegalArgumentException("Registo mal formado: " + line);
+        }
+        return build(f, n);
+    }
 
-        // Reconstruir o relógio de Lamport
-        long lamport = Long.parseLong(f[4]);
-
-        // Reconstruir o relógio vetorial
-        VectorClock vector = VectorClock.parse(f[5], N);
-
-        return new SensorRecord(
-            seq,
-            sensorId,
-            temperature,
-            timestamp,
-            lamport,
-            vector
-        );
+    private static SensorRecord build(String[] f, int n) {
+        return new SensorRecord(Long.parseLong(f[0]), f[1], Double.parseDouble(f[2]), f[3],
+                Long.parseLong(f[4]), VectorClock.parse(f[5], n));
     }
 
     public long getSeq() {
@@ -149,11 +92,7 @@ public class SensorRecord {
         return lamport;
     }
 
-    /**
-     * Devolve uma cópia do relógio vetorial para
-     * preservar o estado interno do registo.
-     */
     public VectorClock getVector() {
-        return vector.copy();
+        return vector;
     }
 }
