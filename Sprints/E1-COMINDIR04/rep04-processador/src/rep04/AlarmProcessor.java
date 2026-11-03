@@ -1,269 +1,227 @@
 package rep04;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.util.*;
 
+/**
+ * Processador de alarmes (COMINDIR04): OBSERVA os LOTES de todas as partições,
+ * cria dependências causais
+ * entre partições (como na COMINDIR03) e, além disso, acompanha cada líder com
+ * um HeartbeatMonitor.
+ *
+ * Uso: java [-Dsilencioso=true] [-Drep04.periodo=<ms>] [-Drep04.fator=<n>] -cp
+ * out rep04.AlarmProcessor <N> [api]
+ *
+ * Carimbos: tudo como na COMINDIR03 (Lp e Vp = máximo de todos os registos
+ * recebidos; alarmes e registos
+ * ALARM- ignorados; duplicados ignorados). O que muda: a entrada são LOTES, e
+ * por isso um alarme só é
+ * produzido quando o lote da partição de origem CHEGA (até Δ depois de a
+ * leitura ter sido registada) e só é
+ * aplicado numa réplica quando o lote da partição de destino chegar (até mais
+ * Δ). Os carimbos L e V do alarme
+ * NÃO mudam: dependem do que o processador viu, não de quando o viu.
+ *
+ * Antes de publicar um alarme para a partição j: se o monitor de j estiver
+ * SUSPEITO, avisa e publica na
+ * mesma (sem retenção nem reenvio: o alarme pode perder-se sem deixar
+ * vestígio).
+ * Eventos do detetor: console + monitor-processador.txt
+ * ("instante;evento;p<k>;detalhe").
+ */
 public class AlarmProcessor {
+    static final boolean SILENCIOSO = Boolean.getBoolean("silencioso");
 
-    // Estado partilhado entre todas as threads
     static final Object LOCK = new Object();
+    static long lp; // Lp: máximo dos L vistos (sob LOCK)
+    static VectorClock vp; // Vp: máximo, componente a componente, dos V vistos (sob LOCK)
+    static List<Set<Long>> vistos; // por partição, os seq já processados (deteção de duplicados)
+    static HeartbeatMonitor[] monitores;
 
-    static long Lp;
-    static VectorClock Vp;
+    // estatísticas desde o último resumo (sob LOCK)
+    static int registos, alarmes, ignoradosAlarm, duplicados, rejeitados, falhas, avisos;
+    static long ultimoMs;
 
-    static int N;
-    static Partitioner partitioner;
-    static IpfsPubSub ps;
+    static void falar(String s) {
+        if (!SILENCIOSO)
+            System.out.println(s);
+    }
 
-    // Sequências já recebidas em cada partição
-    static Set<Long>[] recebidos;
-
-    /**
-     * Processa uma mensagem REG recebida
-     * de uma determinada partição.
-     */
-    static void onReg(int k, String msg) {
-
-        SensorRecord r;
-
+    static synchronized void evento(String linha) {
+        String l = System.currentTimeMillis() + ";" + linha;
         try {
-
-            // Verificar o tipo da mensagem
-            if (!Wire.type(msg).equals("REG")) {
-
-                System.out.println(
-                    "REJEITADO: p" + k + " " + msg
-                );
-                return;
-            }
-
-            // Separar host, porto e registo
-            String[] partes = Wire.regParts(msg);
-
-            // Reconstruir o registo com os relógios
-            r = SensorRecord.fromLine(partes[2], N);
-
-        } catch (IllegalArgumentException e) {
-
-            System.out.println(
-                "REJEITADO: p" + k + " " + msg
-            );
-            return;
-        }
-
-        String sensor = r.getSensorId();
-        long seq = r.getSeq();
-
-        // Ignorar registos de alarmes antes
-        // de atualizar os relógios do processador
-        if (sensor.startsWith("ALARM-")) {
-            return;
-        }
-
-        // Relógios a utilizar no eventual alarme
-        long novoLp;
-        VectorClock novoVp;
-
-        // SECÇÃO SINCRONIZADA
-        synchronized (LOCK) {
-
-            // Ignorar duplicados da mesma partição
-            if (recebidos[k].contains(seq)) {
-
-                System.out.println(
-                    "DUPLICADO: p" + k + " seq " + seq
-                );
-                return;
-            }
-
-            // Marcar o registo como recebido
-            recebidos[k].add(seq);
-
-            // Atualizar o relógio de Lamport
-            Lp = Math.max(Lp, r.getLamport());
-
-            // Atualizar o relógio vetorial
-            Vp.merge(r.getVector());
-
-            // Guardar um estado consistente
-            novoLp = Lp;
-            novoVp = Vp.copy();
-        }
-
-        // Verificar se a temperatura atinge
-        // o limiar definido na classe Wire
-        if (r.getTemperature() < Wire.LIMIAR_ALARME) {
-            return;
-        }
-
-        // Construir o identificador do alarme
-        String sensorAlarme = "ALARM-" + sensor;
-
-        // Determinar a partição de destino
-        int j = partitioner.of(sensorAlarme);
-
-        // Criar a mensagem IN com os relógios
-        String mensagem = Wire.in(
-            sensorAlarme,
-            r.getTemperature(),
-            novoLp,
-            novoVp
-        );
-
-        // Publicação fora da secção sincronizada
-        try {
-
-            ps.publish(
-                Wire.topicIn(j),
-                mensagem
-            );
-
-            System.out.println(
-                "ALARME: " + sensor
-                + " p" + k + "#" + seq
-                + " → p" + j
-            );
-
+            Files.writeString(Paths.get("monitor-processador.txt"), l + "\n", StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
+            System.out.println("ERRO a escrever o ficheiro de eventos: " + e.getMessage());
+        }
+        if (!linha.startsWith("RECEBIDO"))
+            System.out.println("[monitor] " + l);
+    }
 
-            System.out.println(
-                "Falha a publicar alarme de "
-                + sensor + ": " + e.getMessage()
-            );
+    public static void main(String[] args) {
+        if (args.length < 1) {
+            System.out.println("Uso: AlarmProcessor <N> [api]");
+            return;
+        }
+        int n;
+        Partitioner part;
+        try {
+            n = Integer.parseInt(args[0]);
+            part = new Partitioner(n);
+        } catch (IllegalArgumentException e) {
+            System.out.println("N inválido: " + args[0]);
+            return;
+        }
+        String api = args.length > 1 ? args[1] : "http://127.0.0.1:5001/api/v0";
+        IpfsPubSub ps = new IpfsPubSub(api);
 
-        } catch (InterruptedException e) {
+        vp = new VectorClock(n);
+        lp = 0;
+        vistos = new ArrayList<>();
+        monitores = new HeartbeatMonitor[n];
+        for (int k = 0; k < n; k++) {
+            vistos.add(new HashSet<>());
+            monitores[k] = new HeartbeatMonitor(k, Wire.PERIODO_HB_MS, Wire.FATOR_TIMEOUT, AlarmProcessor::evento);
+        }
 
-            System.out.println(
-                "Publicação do alarme interrompida: "
-                + e.getMessage()
-            );
+        System.out.println("Processador de alarmes pronto (N = " + n + ", limiar = " + Wire.LIMIAR_ALARME
+                + " °C, Δ=" + Wire.PERIODO_HB_MS + " ms, timeout=" + Wire.PERIODO_HB_MS * Wire.FATOR_TIMEOUT
+                + " ms, API " + api + ").");
 
-            Thread.currentThread().interrupt();
+        for (int k = 0; k < n; k++) {
+            final int kk = k;
+            new Thread(() -> subscrever(kk, n, part, ps), "sub-p" + kk).start(); // uma thread por partição
+        }
+
+        Thread verificacao = new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(Wire.VERIFICACAO_MS);
+                } catch (InterruptedException e) {
+                    return;
+                }
+                for (HeartbeatMonitor m : monitores)
+                    m.check();
+            }
+        }, "verificacao");
+        verificacao.setDaemon(true);
+        verificacao.start();
+
+        Thread monitor = new Thread(AlarmProcessor::resumos, "resumos");
+        monitor.setDaemon(true);
+        monitor.start();
+    }
+
+    static void subscrever(int k, int n, Partitioner part, IpfsPubSub ps) {
+        try {
+            ps.subscribe(Wire.topicData(k), msg -> processarLote(k, n, part, ps, msg)); // BLOQUEIA: nunca termina
+            System.out.println("[p" + k + "] subscrição terminada");
+        } catch (IOException | InterruptedException e) {
+            System.out.println("[p" + k + "] IO: " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 
-    /**
-     * Arranque do processador de alarmes.
-     *
-     * Argumentos:
-     * AlarmProcessor <N> [api]
-     */
-    public static void main(String[] args) {
+    static void processarLote(int k, int n, Partitioner part, IpfsPubSub ps, String msg) {
+        Batch b;
+        try {
+            b = Batch.decode(msg, n); // dimensão do vetor dos registos tem de ser N
+        } catch (IllegalArgumentException e) {
+            synchronized (LOCK) {
+                rejeitados++;
+                ultimoMs = System.currentTimeMillis();
+            }
+            System.out.println("[p" + k + "] REJEITADO: " + msg.split("\n", 2)[0] + " (" + e.getMessage() + ")");
+            return;
+        }
+        monitores[k].onHeartbeat(b.inc, b.hb); // mesmo de um lote de incarnação antiga: o monitor decide, os registos
+                                               // valem
+        String faixa = b.records.isEmpty() ? "-"
+                : b.records.get(0).getSeq() + ".." + b.records.get(b.records.size() - 1).getSeq();
+        evento("RECEBIDO;p" + k + ";inc=" + b.inc + ",hb=" + b.hb + ",ultimoSeq=" + b.lastSeq
+                + ",n=" + b.records.size() + ",seq=" + faixa);
+        for (SensorRecord r : b.records) {
+            processarRegisto(k, part, ps, r);
+        }
+    }
 
-        // Validar argumentos
-        if (args.length < 1 || args.length > 2) {
-
-            System.out.println(
-                "Uso: AlarmProcessor <N> [api]"
-            );
+    static void processarRegisto(int k, Partitioner part, IpfsPubSub ps, SensorRecord r) {
+        // alarmes não geram alarmes (e, pela especificação, são ignorados: nem se
+        // acumulam)
+        if (r.getSensorId().startsWith("ALARM-")) {
+            synchronized (LOCK) {
+                ignoradosAlarm++;
+            }
             return;
         }
 
-        // Validar número de partições
-        try {
-
-            N = Integer.parseInt(args[0]);
-
-            if (N <= 0) {
-
-                System.out.println(
-                    "Erro: N deve ser um inteiro positivo."
-                );
+        boolean alarme = r.getTemperature() >= Wire.LIMIAR_ALARME;
+        long lSnap = 0;
+        VectorClock vSnap = null;
+        synchronized (LOCK) {
+            if (!vistos.get(k).add(r.getSeq())) { // mesma partição e mesmo seq: duplicado
+                duplicados++;
                 return;
             }
-
-        } catch (NumberFormatException e) {
-
-            System.out.println(
-                "Erro: N deve ser um inteiro positivo."
-            );
-            return;
+            registos++;
+            ultimoMs = System.currentTimeMillis();
+            lp = Math.max(lp, r.getLamport()); // acumula o máximo de TODOS os registos...
+            vp.merge(r.getVector()); // ... componente a componente
+            if (alarme) {
+                lSnap = lp;
+                vSnap = vp.copy(); // instantâneo: o vetor partilhado continua a ser alterado pelas outras threads
+            }
         }
 
-        // Endereço da API IPFS
-        String api = args.length > 1
-                ? args[1]
-                : "http://127.0.0.1:5001/api/v0";
-
-        partitioner = new Partitioner(N);
-        ps = new IpfsPubSub(api);
-
-        // Inicializar relógios do processador
-        Lp = 0;
-        Vp = new VectorClock(N);
-
-        // Inicializar conjuntos de duplicados
-        @SuppressWarnings("unchecked")
-        Set<Long>[] conjuntos =
-                (Set<Long>[]) new Set<?>[N];
-
-        recebidos = conjuntos;
-
-        for (int k = 0; k < N; k++) {
-            recebidos[k] = new HashSet<>();
-        }
-
-        System.out.println(
-            "Processador de alarmes iniciado."
-        );
-
-        System.out.println(
-            "Número de partições: " + N
-        );
-
-        System.out.println(
-            "API IPFS: " + api
-        );
-
-        System.out.println(
-            "Limiar de alarme: "
-            + Wire.LIMIAR_ALARME + " °C"
-        );
-
-        System.out.println(
-            "Relógio inicial: Lp=" + Lp
-            + " Vp=" + Vp
-        );
-
-        // Uma thread de subscrição por partição
-        for (int i = 0; i < N; i++) {
-
-            final int k = i;
-
-            Thread t = new Thread(() -> {
-
-                try {
-
-                    ps.subscribe(
-                        Wire.topicData(k),
-                        msg -> onReg(k, msg)
-                    );
-
-                } catch (IOException e) {
-
-                    System.out.println(
-                        "Erro na subscrição p" + k
-                        + ": " + e.getMessage()
-                    );
-
-                } catch (InterruptedException e) {
-
-                    System.out.println(
-                        "Subscrição interrompida p" + k
-                    );
-
-                    Thread.currentThread().interrupt();
+        if (alarme) {
+            String sensorAlarme = "ALARM-" + r.getSensorId();
+            int j = part.of(sensorAlarme); // pode ser outra partição que a do registo que o originou
+            if (monitores[j].state() == HeartbeatMonitor.State.SUSPEITO) {
+                synchronized (LOCK) {
+                    avisos++;
                 }
+                System.out.println("AVISO: líder p" + j + " suspeito; alarme " + sensorAlarme + " pode perder-se");
+            }
+            try {
+                // fora do LOCK: o publish é um pedido HTTP lento e não deve bloquear as outras
+                // threads
+                ps.publish(Wire.topicIn(j), Wire.in(sensorAlarme, r.getTemperature(), lSnap, vSnap));
+                synchronized (LOCK) {
+                    alarmes++;
+                }
+                falar("ALARME: " + r.getSensorId() + " p" + k + "#" + r.getSeq() + " → p" + j
+                        + " (L=" + lSnap + " V=" + vSnap + ")");
+            } catch (IOException e) {
+                synchronized (LOCK) {
+                    falhas++;
+                }
+                System.out.println("FALHA A PUBLICAR ALARME: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
 
-            }, "alarme-p" + k);
-
-            t.start();
-
-            System.out.println(
-                "Thread lançada para o tópico "
-                + Wire.topicData(k)
-            );
+    // 2 s sem registos novos depois de ter visto alguns = fim da rajada -> resumo
+    static void resumos() {
+        while (true) {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                return;
+            }
+            synchronized (LOCK) {
+                if ((registos > 0 || rejeitados > 0) && System.currentTimeMillis() - ultimoMs >= 2000) {
+                    System.out.println("--- RESUMO processador --- registos=" + registos + " | alarmes=" + alarmes
+                            + " | ignorados(ALARM-)=" + ignoradosAlarm + " | duplicados=" + duplicados
+                            + " | rejeitados=" + rejeitados + " | falhas=" + falhas + " | avisos(líder suspeito)="
+                            + avisos
+                            + " | Lp=" + lp + " | Vp=" + vp);
+                    registos = alarmes = ignoradosAlarm = duplicados = rejeitados = falhas = avisos = 0;
+                }
+            }
         }
     }
 }
