@@ -1,14 +1,17 @@
-# Arranque local dos quatro projetos COMINDIR03.
+# Arranque local dos quatro projetos COMINDIR04.
 # Compilacao e preparacao dos ensaios; conserva os dados.
 [CmdletBinding()]
 param(
     [string]$KuboPath,
     [string]$JavaHome,
     [ValidateSet(3)][int]$Particoes = 3,
-    [ValidateSet('Tudo','Lider','Processador','Produtor','CausalCheck','PartitionCheck')]
+    [ValidateSet('Tudo','Lider','FalharLider','Processador','Produtor','CausalCheck','HeartbeatCheck','PartitionCheck','Analises')]
     [string]$Acao = 'Tudo',
     [ValidateRange(0,2)][int]$Lider = 2,
     [string]$PastaDados = 'dados-n3',
+    [ValidateRange(1,2147483647)][int]$PeriodoMs = 5000,
+    [ValidateRange(1,2147483647)][int]$FatorTimeout = 3,
+    [string]$FalhasTxt,
     [switch]$SemProcessador,
     [ValidateRange(0,1)][double]$PerdaReplica3 = 0,
     [switch]$Verificar
@@ -21,9 +24,51 @@ $dataRoot = if ([IO.Path]::IsPathRooted($PastaDados)) {
 } else {
     [IO.Path]::GetFullPath((Join-Path $sprintRoot $PastaDados))
 }
-$buildRoot = Join-Path $env:LOCALAPPDATA ("SD-COMINDIR03\build\" + [guid]::NewGuid().ToString('N'))
+$buildRoot = Join-Path $env:LOCALAPPDATA ("SD-COMINDIR04\build\" + [guid]::NewGuid().ToString('N'))
 $toolsRoot = Join-Path $sprintRoot '.tools'
 $api = 'http://127.0.0.1:5001/api/v0'
+$jvmArgs = @("-Drep04.periodo=$PeriodoMs", "-Drep04.fator=$FatorTimeout")
+
+# Acao pontual para ensaios com falha: sem compilacao, sem iniciar Kubo e sem espera.
+# O aluno escolhe o instante; o script identifica o lider pela porta TCP.
+if ($Acao -eq 'FalharLider') {
+    if (!$PSBoundParameters.ContainsKey('Lider')) {
+        throw 'Indica explicitamente -Lider 0, 1 ou 2.'
+    }
+    if (!(Test-Path -LiteralPath $dataRoot -PathType Container)) {
+        throw "Pasta de dados inexistente: $dataRoot"
+    }
+    $leaderPort = 7000 + $Lider
+    $listeners = @(Get-NetTCPConnection -LocalPort $leaderPort -State Listen -ErrorAction Stop)
+    $ownerIds = @($listeners | Select-Object -ExpandProperty OwningProcess -Unique)
+    if ($ownerIds.Count -ne 1) {
+        throw "Esperado um unico lider a escutar na porta $leaderPort; encontrados $($ownerIds.Count)."
+    }
+    $leaderProcessId = [int]$ownerIds[0]
+    $leaderProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $leaderProcessId"
+    if (!$leaderProcess -or $leaderProcess.CommandLine -notmatch 'rep04\.PartitionLeader') {
+        throw "O processo da porta $leaderPort nao foi identificado como rep04.PartitionLeader."
+    }
+    $failureName = if ($FalhasTxt) { $FalhasTxt } else { 'falhas.txt' }
+    $failurePath = if ([IO.Path]::IsPathRooted($failureName)) {
+        [IO.Path]::GetFullPath($failureName)
+    } else {
+        [IO.Path]::GetFullPath((Join-Path $dataRoot $failureName))
+    }
+    $failureParent = Split-Path -Parent $failurePath
+    if (!(Test-Path -LiteralPath $failureParent -PathType Container)) {
+        throw "Pasta do ficheiro de falhas inexistente: $failureParent"
+    }
+    $failureInstant = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    Stop-Process -Id $leaderProcessId -Force -ErrorAction Stop
+    [IO.File]::AppendAllText(
+        $failurePath,
+        "p$Lider;$failureInstant" + [Environment]::NewLine,
+        [Text.UTF8Encoding]::new($false)
+    )
+    Write-Host "Lider p$Lider terminado; falha registada em $failurePath ($failureInstant ms)." -ForegroundColor Green
+    exit 0
+}
 
 # 1. Ferramentas e compilacao. Os binarios ficam fora do repositorio.
 function Find-JavaTool([string]$Name) {
@@ -93,8 +138,8 @@ function Resolve-Kubo {
 try {
     $java = Find-JavaTool 'java'
     $javac = Find-JavaTool 'javac'
-    foreach ($project in @('rep03-produtor', 'rep03-lider', 'rep03-replica', 'rep03-processador')) {
-        $source = Join-Path $sprintRoot "$project\src\rep03"
+    foreach ($project in @('rep04-produtor', 'rep04-lider', 'rep04-replica', 'rep04-processador')) {
+        $source = Join-Path $sprintRoot "$project\src\rep04"
         $sources = @(Get-ChildItem -LiteralPath $source -Filter '*.java' -File | ForEach-Object FullName)
         if (!$sources.Count) { throw "Sem ficheiros Java em $source" }
         $output = Join-Path $buildRoot $project
@@ -104,7 +149,7 @@ try {
         Write-Host "Compilado: $project" -ForegroundColor Green
     }
 
-    Write-Host "`nParticoes: $Particoes | API: $api"
+    Write-Host "`nParticoes: $Particoes | Periodo: $PeriodoMs ms | Fator: $FatorTimeout | API: $api"
     Write-Host "Dados: $dataRoot"
     Write-Host "Classes: $buildRoot"
     if ($Verificar) {
@@ -112,16 +157,21 @@ try {
         exit 0
     }
 
-    $replicaBuild = Join-Path $buildRoot 'rep03-replica'
-    $leaderBuild = Join-Path $buildRoot 'rep03-lider'
-    $producerBuild = Join-Path $buildRoot 'rep03-produtor'
-    $processorBuild = Join-Path $buildRoot 'rep03-processador'
-    if ($Acao -in @('CausalCheck','PartitionCheck')) {
+    $replicaBuild = Join-Path $buildRoot 'rep04-replica'
+    $leaderBuild = Join-Path $buildRoot 'rep04-lider'
+    $producerBuild = Join-Path $buildRoot 'rep04-produtor'
+    $processorBuild = Join-Path $buildRoot 'rep04-processador'
+    if ($Acao -in @('CausalCheck','HeartbeatCheck','PartitionCheck','Analises')) {
         if (!(Test-Path -LiteralPath $dataRoot -PathType Container)) {
             throw "Pasta de dados inexistente: $dataRoot"
         }
-        & $java -cp $replicaBuild "rep03.$Acao" "$Particoes" $dataRoot
-        if ($LASTEXITCODE -ne 0) { throw "Falha a executar $Acao." }
+        $checks = if ($Acao -eq 'Analises') { @('HeartbeatCheck','CausalCheck') } else { @($Acao) }
+        foreach ($check in $checks) {
+            $checkArgs = @('-cp', $replicaBuild, "rep04.$check", "$Particoes", $dataRoot)
+            if ($check -eq 'HeartbeatCheck' -and $FalhasTxt) { $checkArgs += $FalhasTxt }
+            & $java @checkArgs
+            if ($LASTEXITCODE -ne 0) { throw "Falha a executar $check." }
+        }
         exit 0
     }
     if ($Acao -in @('Tudo','Lider')) {
@@ -135,7 +185,7 @@ try {
     New-Item -ItemType Directory -Path $dataRoot -Force | Out-Null
     if (!(Test-Kubo)) {
         $ipfs = Resolve-Kubo
-        $repo = Join-Path $toolsRoot 'ipfs-repo-comindir03'
+        $repo = Join-Path $toolsRoot 'ipfs-repo-comindir04'
         $previousRepo = $env:IPFS_PATH
         try {
             $env:IPFS_PATH = $repo
@@ -158,7 +208,7 @@ try {
             & $ipfs config Routing.Type none
             if ($LASTEXITCODE -ne 0) { throw 'Falha a configurar Routing.Type.' }
         } finally { $env:IPFS_PATH = $previousRepo }
-        Open-Console 'COMINDIR03 - Kubo' $ipfs @('daemon', '--enable-pubsub-experiment') $repo
+        Open-Console 'COMINDIR04 - Kubo' $ipfs @('daemon', '--enable-pubsub-experiment') $repo
         $deadline = [DateTime]::UtcNow.AddSeconds(45)
         while (!(Test-Kubo)) {
             if ([DateTime]::UtcNow -gt $deadline) { throw 'Kubo nao ficou pronto. Consulta a consola Kubo.' }
@@ -169,41 +219,42 @@ try {
     }
 
     if ($Acao -eq 'Lider') {
-        Open-Console "COMINDIR03 - Lider p$Lider" $java @('-cp', $leaderBuild, 'rep03.PartitionLeader', "$Lider", "$Particoes", '127.0.0.1', $api)
+        Open-Console "COMINDIR04 - Lider p$Lider" $java ($jvmArgs + @('-cp', $leaderBuild, 'rep04.PartitionLeader', "$Lider", "$Particoes", '127.0.0.1', $api))
         exit 0
     }
     if ($Acao -eq 'Processador') {
-        Open-Console 'COMINDIR03 - Processador' $java @('-cp', $processorBuild, 'rep03.AlarmProcessor', "$Particoes", $api)
+        Open-Console 'COMINDIR04 - Processador' $java ($jvmArgs + @('-cp', $processorBuild, 'rep04.AlarmProcessor', "$Particoes", $api))
         exit 0
     }
     if ($Acao -eq 'Produtor') {
-        Open-Console 'COMINDIR03 - Produtor' $java @('-cp', $producerBuild, 'rep03.Producer', "$Particoes", $api)
+        Open-Console 'COMINDIR04 - Produtor' $java ($jvmArgs + @('-cp', $producerBuild, 'rep04.Producer', "$Particoes", $api))
         exit 0
     }
 
     # 3. Replicas, lideres, processador e produtor.
     $assignments = if ($Particoes -eq 3) { @('0,1','1,2','2,0') } else { @('0','0','0') }
-    $replicaBuild = Join-Path $buildRoot 'rep03-replica'
-    $leaderBuild = Join-Path $buildRoot 'rep03-lider'
-    $producerBuild = Join-Path $buildRoot 'rep03-produtor'
+    $replicaBuild = Join-Path $buildRoot 'rep04-replica'
+    $leaderBuild = Join-Path $buildRoot 'rep04-lider'
+    $producerBuild = Join-Path $buildRoot 'rep04-produtor'
     for ($id = 1; $id -le 3; $id++) {
-        $javaArgs = @('-cp', $replicaBuild)
+        $javaArgs = $jvmArgs + @('-cp', $replicaBuild)
         if ($id -eq 3) { $javaArgs += '-Dperda=' + $PerdaReplica3.ToString([Globalization.CultureInfo]::InvariantCulture) }
-        $javaArgs += @('rep03.PartitionReplica', "$id", $assignments[$id - 1], $api)
-        Open-Console "COMINDIR03 - Replica $id" $java $javaArgs
+        $javaArgs += @('rep04.PartitionReplica', "$id", $assignments[$id - 1], $api)
+        Open-Console "COMINDIR04 - Replica $id" $java $javaArgs
     }
     Read-Host 'Confirma as subscricoes nas tres consolas das replicas. Enter para abrir os lideres' | Out-Null
     for ($k = 0; $k -lt $Particoes; $k++) {
-        Open-Console "COMINDIR03 - Lider p$k" $java @('-cp', $leaderBuild, 'rep03.PartitionLeader', "$k", "$Particoes", '127.0.0.1', $api)
+        Open-Console "COMINDIR04 - Lider p$k" $java ($jvmArgs + @('-cp', $leaderBuild, 'rep04.PartitionLeader', "$k", "$Particoes", '127.0.0.1', $api))
     }
     Read-Host 'Confirma os portos e subscricoes dos lideres. Enter para continuar' | Out-Null
     if (!$SemProcessador) {
-        Open-Console 'COMINDIR03 - Processador' $java @('-cp', $processorBuild, 'rep03.AlarmProcessor', "$Particoes", $api)
+        Open-Console 'COMINDIR04 - Processador' $java ($jvmArgs + @('-cp', $processorBuild, 'rep04.AlarmProcessor', "$Particoes", $api))
         Read-Host 'Confirma as tres subscricoes do processador. Enter para abrir o produtor' | Out-Null
     }
-    Open-Console 'COMINDIR03 - Produtor' $java @('-cp', $producerBuild, 'rep03.Producer', "$Particoes", $api)
+    Open-Console 'COMINDIR04 - Produtor' $java ($jvmArgs + @('-cp', $producerBuild, 'rep04.Producer', "$Particoes", $api))
     Write-Host 'Consolas abertas. Os ficheiros de dados existentes foram conservados.' -ForegroundColor Green
 } catch {
     Write-Host "ERRO: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }
+
