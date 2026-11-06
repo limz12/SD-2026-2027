@@ -3,6 +3,7 @@ package raft04;
 import java.io.*;
 import java.net.*;
 import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -70,8 +71,55 @@ public class PartitionNode {
     }
 
     static void onIn(String msg) {
-        // simplificado: apenas log
-        log("IN_RECEBIDO;" + msg.trim());
+        try {
+            if (!Wire.type(msg).equals("IN")) { log("REJEITADO;" + msg.trim()); return; }
+            String corpo = Wire.body(msg);
+            String[] f = corpo.split(";", -1);
+            if (f.length != 4) { log("REJEITADO;" + msg.trim()); return; }
+            String sensor = f[0].trim();
+            double temp = Double.parseDouble(f[1].trim());
+            long lamportRecebido = Long.parseLong(f[2].trim());
+            VectorClock vectorRecebido = VectorClock.parse(f[3].trim(), N);
+            int destino = new Partitioner(N).of(sensor);
+            if (destino != k) { log("PARTICAO_ERRADA;" + sensor); return; }
+            synchronized (state) {
+                long t = state.termIfLeader();
+                if (t < 0) { log("IGNORADO;p" + k); return; }
+                // atualizar relogios
+                lamport = Math.max(lamport, lamportRecebido) + 1;
+                VectorClock novoVector = vector.copy();
+                novoVector.merge(vectorRecebido);
+                novoVector.tick(k);
+                long novoSeq = ultimoSeq + 1;
+                if (novoVector.get(k) != novoSeq) { log("ERRO;V[" + k + "]=" + novoVector.get(k) + " != seq=" + novoSeq); return; }
+                SensorRecord r = SensorRecord.now(novoSeq, t, sensor, temp, lamport, novoVector);
+                // persistir (simplificado: append to file not shown)
+                ultimoSeq = novoSeq;
+                ultimoTermo = t;
+                lamport = lamport;
+                vector = novoVector;
+                pendentes.add(r);
+                log("EVENTO;seq=" + ultimoSeq + ";termo=" + t);
+            }
+        } catch (Exception e) { log("ERRO;" + e.getMessage()); }
+    }
+
+    static void recuperarAte(long ate) {
+        // TCP recovery simplificado
+        String hostLider = "127.0.0.1";
+        int porto = Wire.nodePort(k, /*lider*/ 1);
+        try (Socket s = new Socket()) {
+            s.connect(new InetSocketAddress(hostLider, porto), Wire.T_TCP_MS);
+            s.setSoTimeout(Wire.T_TCP_MS);
+            PrintWriter out = new PrintWriter(s.getOutputStream(), true, StandardCharsets.UTF_8);
+            BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
+            out.println("PEDIDO " + (ultimoSeq + 1) + " " + ate);
+            String linha;
+            while ((linha = in.readLine()) != null) {
+                if (linha.trim().equals("FIM")) break;
+                log("RECUPERADO;" + linha.trim());
+            }
+        } catch (Exception e) { log("ERRO_RECUPERACAO;" + e.getMessage()); }
     }
 
     static void onLote(String msg) {
@@ -81,8 +129,12 @@ public class PartitionNode {
             if (h.length < 9 || !h[0].equals("LOTE")) return;
             long bTerm = Long.parseLong(h[1]);
             int bLeader = Integer.parseInt(h[2]);
+            long lastSeq = Long.parseLong(h[6]);
             if (!state.onBatch(bTerm, bLeader)) { log("IGNORADO;p" + k + ";termo=" + bTerm); return; }
             log("RECEBIDO;p" + k + ";termo=" + bTerm + ";lider=n" + bLeader);
+            if (ultimoSeq < lastSeq) {
+                recuperarAte(lastSeq);
+            }
         } catch (Exception e) { log("ERRO;" + e.getMessage()); }
     }
 
@@ -116,6 +168,29 @@ public class PartitionNode {
     }
 
     static void atender(Socket s) {
-        try { s.close(); } catch (IOException ignored) {}
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
+             PrintWriter out = new PrintWriter(s.getOutputStream(), true, StandardCharsets.UTF_8)) {
+            s.setSoTimeout(Wire.T_TCP_MS);
+            String pedido = in.readLine();
+            if (pedido == null) return;
+            String[] p = pedido.trim().split("\\s+");
+            if (p.length != 3 || !p[0].equals("PEDIDO")) { out.println("ERRO pedido mal formado"); return; }
+            long de = Long.parseLong(p[1]);
+            long ate = Long.parseLong(p[2]);
+            if (de <= 0 || ate <= 0 || de > ate) { out.println("ERRO intervalo invalido"); return; }
+            // simplificado: ler ficheiro no-p<k>-n<i>.txt e enviar linhas de..ate
+            File f = new File("no-p" + k + "-n" + i + ".txt");
+            List<String> lines = Files.exists(f.toPath()) ? Files.readAllLines(f.toPath()) : List.of();
+            for (String l : lines) {
+                String[] parts = l.split(";");
+                long seq = Long.parseLong(parts[0]);
+                if (seq >= de && seq <= ate) out.println(l);
+            }
+            out.println("FIM");
+        } catch (Exception e) {
+            log("ERRO;" + e.getMessage());
+        } finally {
+            try { s.close(); } catch (IOException ignored) {}
+        }
     }
 }
