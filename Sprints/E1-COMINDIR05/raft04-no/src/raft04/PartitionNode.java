@@ -12,6 +12,7 @@ public class PartitionNode {
     static RaftState state;
     static long ultimoSeq;
     static long ultimoTermo;
+    static long hb = 0;
     static long lamport;
     static VectorClock vector;
     static List<SensorRecord> pendentes = new ArrayList<>();
@@ -93,7 +94,10 @@ public class PartitionNode {
                 long novoSeq = ultimoSeq + 1;
                 if (novoVector.get(k) != novoSeq) { log("ERRO;V[" + k + "]=" + novoVector.get(k) + " != seq=" + novoSeq); return; }
                 SensorRecord r = SensorRecord.now(novoSeq, t, sensor, temp, lamport, novoVector);
-                // persistir (simplificado: append to file not shown)
+                // persistir registo
+                try (FileWriter fw = new FileWriter("no-p" + k + "-n" + i + ".txt", true)) {
+                    fw.write(r.toLine() + "\n");
+                }
                 ultimoSeq = novoSeq;
                 ultimoTermo = t;
                 lamport = lamport;
@@ -105,21 +109,36 @@ public class PartitionNode {
     }
 
     static void recuperarAte(long ate) {
-        // TCP recovery simplificado
         String hostLider = "127.0.0.1";
-        int porto = Wire.nodePort(k, /*lider*/ 1);
-        try (Socket s = new Socket()) {
-            s.connect(new InetSocketAddress(hostLider, porto), Wire.T_TCP_MS);
-            s.setSoTimeout(Wire.T_TCP_MS);
-            PrintWriter out = new PrintWriter(s.getOutputStream(), true, StandardCharsets.UTF_8);
-            BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
-            out.println("PEDIDO " + (ultimoSeq + 1) + " " + ate);
-            String linha;
-            while ((linha = in.readLine()) != null) {
-                if (linha.trim().equals("FIM")) break;
-                log("RECUPERADO;" + linha.trim());
-            }
-        } catch (Exception e) { log("ERRO_RECUPERACAO;" + e.getMessage()); }
+        // tentar portos dos nós 1..3
+        for (int cand = 1; cand <= 3; cand++) {
+            int porto = Wire.nodePort(k, cand);
+            try (Socket s = new Socket()) {
+                s.connect(new InetSocketAddress(hostLider, porto), Wire.T_TCP_MS);
+                s.setSoTimeout(Wire.T_TCP_MS);
+                PrintWriter out = new PrintWriter(s.getOutputStream(), true, StandardCharsets.UTF_8);
+                BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
+                out.println("PEDIDO " + (ultimoSeq + 1) + " " + ate);
+                List<String> novos = new ArrayList<>();
+                String linha;
+                while ((linha = in.readLine()) != null) {
+                    if (linha.trim().equals("FIM")) break;
+                    novos.add(linha.trim());
+                }
+                // append recuperados ao ficheiro
+                try (FileWriter fw = new FileWriter("no-p" + k + "-n" + i + ".txt", true)) {
+                    for (String l : novos) fw.write(l + "\n");
+                }
+                if (!novos.isEmpty()) {
+                    String[] parts = novos.get(novos.size() - 1).split(";");
+                    ultimoSeq = Long.parseLong(parts[0]);
+                    ultimoTermo = Long.parseLong(parts[1]);
+                }
+                log("RECUPERACAO;de=" + (ultimoSeq + 1 - novos.size()) + ";ate=" + ate + ";n=" + novos.size());
+                return;
+            } catch (Exception ignored) {}
+        }
+        log("ERRO_RECUPERACAO;sem_lider");
     }
 
     static void onLote(String msg) {
@@ -159,11 +178,28 @@ public class PartitionNode {
     static void enviarLote() {
         long t = state.termIfLeader();
         if (t < 0) { if (scheduler != null) scheduler.shutdown(); return; }
-        // simplificado: publicar lote vazio
+        List<SensorRecord> lote;
+        long seqLote;
+        long termoLote;
+        long hbLote;
+        synchronized (state) {
+            lote = pendentes;
+            pendentes = new ArrayList<>();
+            seqLote = ultimoSeq;
+            termoLote = ultimoTermo;
+            // incrementar hb: guardar em campo estático
+            hb++;
+            hbLote = hb;
+        }
+        Batch b = new Batch(t, i, host, Wire.nodePort(k, i), hbLote, seqLote, termoLote, lote);
+        String msg = b.encode();
         try {
-            Batch b = new Batch(t, i, host, Wire.nodePort(k,i), 0, ultimoSeq, ultimoTermo, new ArrayList<>());
-            ps.publish(Wire.topicData(k), b.encode());
-            log("HEARTBEAT;hb=0;ultimoSeq=" + ultimoSeq);
+            ps.publish(Wire.topicData(k), msg);
+            long bytes = msg.getBytes(StandardCharsets.UTF_8).length;
+            try (FileWriter fw = new FileWriter("hb-p" + k + "-n" + i + ".txt", true)) {
+                fw.write(t + ";" + hbLote + ";" + System.currentTimeMillis() + ";" + seqLote + ";" + termoLote + ";" + lote.size() + ";" + bytes + "\n");
+            }
+            log("HEARTBEAT;hb=" + hbLote + ";n=" + lote.size() + ";ultimoSeq=" + seqLote);
         } catch (Exception e) { log("ERRO;" + e.getMessage()); }
     }
 
@@ -178,7 +214,6 @@ public class PartitionNode {
             long de = Long.parseLong(p[1]);
             long ate = Long.parseLong(p[2]);
             if (de <= 0 || ate <= 0 || de > ate) { out.println("ERRO intervalo invalido"); return; }
-            // simplificado: ler ficheiro no-p<k>-n<i>.txt e enviar linhas de..ate
             File f = new File("no-p" + k + "-n" + i + ".txt");
             List<String> lines = Files.exists(f.toPath()) ? Files.readAllLines(f.toPath()) : List.of();
             for (String l : lines) {

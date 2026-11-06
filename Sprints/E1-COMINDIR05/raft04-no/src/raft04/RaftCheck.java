@@ -11,16 +11,30 @@ public class RaftCheck {
         File dir = new File(args[1]);
         System.out.println("RaftCheck: N=" + N + " pasta=" + dir);
         for (int k=0;k<N;k++) {
-            // contar eventos
-            File ev = new File(dir, "eventos-p" + k + "-n1.txt");
-            int lideres = 0, trunc = 0;
-            if (ev.exists()) for (String l : Files.readAllLines(ev.toPath())) {
-                if (l.contains("LIDER;")) lideres++;
-                if (l.contains("TRUNCADO")) trunc++;
+            // contar eventos por nó
+            for (int i=1;i<=3;i++) {
+                File ev = new File(dir, "eventos-p" + k + "-n" + i + ".txt");
+                if (!ev.exists()) continue;
+                int lideres=0, trunc=0, candidatos=0;
+                for (String l : Files.readAllLines(ev.toPath())) {
+                    if (l.contains("LIDER;")) lideres++;
+                    if (l.contains("TRUNCADO")) trunc++;
+                    if (l.contains("CANDIDATO;")) candidatos++;
+                }
+                System.out.println("p" + k + " n" + i + ": LIDER=" + lideres + " CANDIDATO=" + candidatos + " TRUNCADO=" + trunc);
             }
-            System.out.println("p" + k + ": LIDER events (n1) aprox=" + lideres + " TRUNCADO=" + trunc);
+            // hb
+            for (int i=1;i<=3;i++) {
+                File hb = new File(dir, "hb-p" + k + "-n" + i + ".txt");
+                if (!hb.exists()) continue;
+                int lotes = Files.readAllLines(hb.toPath()).size();
+                System.out.println("p" + k + " n" + i + ": lotes=" + lotes);
+            }
         }
+        // produtor
+        File prod = new File(dir, "produtor.txt");
+        if (prod.exists()) System.out.println("produtor.txt linhas=" + Files.readAllLines(prod.toPath()).size());
         if (args.length > 2) System.out.println("falhas: " + args[2]);
-        System.out.println("Relatório simplificado concluído.");
+        System.out.println("Relatório concluído.");
     }
 }
