@@ -109,12 +109,16 @@ public class PartitionNode {
     }
 
     static void recuperarAte(long ate) {
+        int lider = (int) state.leader();
+        if (lider <= 0) lider = 1;
         String hostLider = "127.0.0.1";
-        // tentar portos dos nós 1..3
-        for (int cand = 1; cand <= 3; cand++) {
-            int porto = Wire.nodePort(k, cand);
+        int porto = Wire.nodePort(k, lider);
+        // tentar portos dos nós 1..3 se o líder falhar
+        int[] cands = new int[]{lider, 1, 2, 3};
+        for (int cand : cands) {
+            int portoTent = Wire.nodePort(k, cand);
             try (Socket s = new Socket()) {
-                s.connect(new InetSocketAddress(hostLider, porto), Wire.T_TCP_MS);
+                s.connect(new InetSocketAddress(hostLider, portoTent), Wire.T_TCP_MS);
                 s.setSoTimeout(Wire.T_TCP_MS);
                 PrintWriter out = new PrintWriter(s.getOutputStream(), true, StandardCharsets.UTF_8);
                 BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
@@ -149,10 +153,42 @@ public class PartitionNode {
             long bTerm = Long.parseLong(h[1]);
             int bLeader = Integer.parseInt(h[2]);
             long lastSeq = Long.parseLong(h[6]);
+            long lastTerm = Long.parseLong(h[7]);
+            int n = Integer.parseInt(h[8]);
             if (!state.onBatch(bTerm, bLeader)) { log("IGNORADO;p" + k + ";termo=" + bTerm); return; }
-            log("RECEBIDO;p" + k + ";termo=" + bTerm + ";lider=n" + bLeader);
-            if (ultimoSeq < lastSeq) {
+            log("RECEBIDO;p" + k + ";termo=" + bTerm + ";lider=n" + bLeader + ";ultimoSeq=" + lastSeq + ";ultimoTermo=" + lastTerm + ";n=" + n);
+            // aplicar registos
+            for (int idx = 1; idx <= n; idx++) {
+                SensorRecord r = SensorRecord.fromLine(lines[idx], N);
+                long seq = r.getSeq();
+                long termo = r.getTerm();
+                if (seq <= ultimoSeq) {
+                    // duplicado ou divergência
+                    if (termo == ultimoTermo) {
+                        log("DUPLICADO;p" + k + ";seq=" + seq);
+                    } else {
+                        log("DIVERGENCIA;p" + k + ";seq=" + seq + ";termoLocal=" + ultimoTermo + ";termoRemoto=" + termo);
+                    }
+                    continue;
+                }
+                if (seq == ultimoSeq + 1) {
+                    // append
+                    try (FileWriter fw = new FileWriter("no-p" + k + "-n" + i + ".txt", true)) { fw.write(r.toLine() + "\n"); }
+                    ultimoSeq = seq;
+                    ultimoTermo = termo;
+                } else {
+                    // lacuna
+                    log("LACUNA;p" + k + ";falta=" + (ultimoSeq + 1));
+                    recuperarAte(seq);
+                }
+            }
+            // verificar divergência final
+            if (ultimoSeq < lastSeq || (ultimoSeq == lastSeq && ultimoTermo != lastTerm)) {
+                log("DIVERGENCIA_FINAL;p" + k + ";local=" + ultimoSeq + "/" + ultimoTermo + ";remoto=" + lastSeq + "/" + lastTerm);
                 recuperarAte(lastSeq);
+            }
+            if (ultimoSeq > lastSeq) {
+                log("TRUNCAR;possivel;p" + k);
             }
         } catch (Exception e) { log("ERRO;" + e.getMessage()); }
     }
