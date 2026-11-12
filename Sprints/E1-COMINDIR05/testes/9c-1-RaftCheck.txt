@@ -1,0 +1,57 @@
+====================================================================
+RaftCheck � N = 3 � pasta: C:\Users\lmapl\Downloads\universidade_3ano\Sprints\E1-COMINDIR05\testes\dados-9c-1
+? = 2000 ms | elei��o em [6000, 12000] ms | indisponibilidade prevista: ]4000, 12200] ms
+====================================================================
+
+===== 1. Termos, candidatos, votos e l�deres =====
+--- p0 ---
+  termo 1: candidatos [1] (o 1.� candidato inclui o auto-voto) | votos concedidos: n1=2 -> LIDER n1 (elei��o: 65 ms)
+--- p1 ---
+  termo 1: candidatos [3] (o 1.� candidato inclui o auto-voto) | votos concedidos: n3=2 -> LIDER n3 (elei��o: 66 ms)
+  termo 2: candidatos [1] (o 1.� candidato inclui o auto-voto) | votos concedidos: n1=1 -> LIDER n1 (elei��o: 27 ms)
+--- p2 ---
+  termo 1: candidatos [3] (o 1.� candidato inclui o auto-voto) | votos concedidos: n3=2 -> LIDER n3 (elei��o: 63 ms)
+
+===== 2. Seguran�a da elei��o =====
+  Termos com mais de um LIDER: 0 � OK (deve ser zero)
+  Eventos ERRO 'dois lideres no termo': 0
+  Termo de cada n� nunca diminui:
+    OK em todos os n�s
+
+===== 3. Tempo at� ao primeiro l�der (desde o arranque do primeiro n�) =====
+  p0: 6196 ms (6.2 s) (n1; arranque t=1794306112294, LIDER t=1794306118490)
+  p1: 7049 ms (7.0 s) (n3; arranque t=1794306112321, LIDER t=1794306119370)
+  p2: 6929 ms (6.9 s) (n3; arranque t=1794306112382, LIDER t=1794306119311)
+
+===== 4. Indisponibilidade por falha (falha -> 1.� LOTE de termo superior) =====
+  falha 1: p1 n3 em t=1794306122824 (termo do l�der = 1) -> novo l�der n1 (termo 2, hb=1, t=1794306130078) -> INDISPONIBILIDADE 7254 ms (7.3 s)
+     leituras enviadas para p1 no intervalo: 23 -> S08 19.3 (t=1794306122841), S02 26.2 (t=1794306122851), S02 26.8 (t=1794306122875), S02 17.6 (t=1794306122884), S08 27.1 (t=1794306122898), S02 23.9 (t=1794306122956), S05 23.3 (t=1794306122961), S02 20.6 (t=1794306122989), S02 17.8 (t=1794306123025), S08 24.1 (t=1794306123030), S05 18.2 (t=1794306123064), S05 25.1 (t=1794306123071), S05 18.2 (t=1794306123078), S05 28.2 (t=1794306123085), S02 26.6 (t=1794306123108), S05 220.7 (t=1794306123128), S05 221.7 (t=1794306123743), S05 222.7 (t=1794306124658), S05 223.7 (t=1794306125563), S05 224.7 (t=1794306126466), S05 225.7 (t=1794306127369), S05 226.7 (t=1794306128280), S05 227.7 (t=1794306129181)
+
+===== 5. Leituras perdidas (n�o constam do registo final de nenhum n�) =====
+  p0: 126 leituras enviadas, 0 perdidas
+  p1: 88 leituras enviadas, 77 perdidas -> S02 17.6 �1, S02 17.8 �1, S02 19.2 �1, S02 19.5 �1, S02 20.2 �1, S02 20.6 �1, S02 21.0 �1, S02 22.0 �1, S02 23.0 �1, S02 23.9 �2, S02 24.1 �1, S02 24.2 �2, S02 24.9 �1, S02 25.2 �1, S02 26.2 �1, S02 26.6 �1, S02 26.7 �1, S02 26.8 �1, S02 27.4 �1, S02 27.9 �1, S02 28.1 �1, S02 29.8 �1, S05 17.1 �1, S05 17.5 �1, S05 17.8 �1, S05 17.9 �1, S05 18.2 �2, S05 19.1 �1, S05 20.5 �1, S05 22.6 �1, S05 22.8 �1, S05 220.7 �1, S05 221.7 �1, S05 222.7 �1, S05 223.7 �1, S05 224.7 �1, S05 225.7 �1, S05 226.7 �1, S05 227.7 �1, S05 23.3 �2, S05 23.4 �1, S05 23.6 �1, S05 24.3 �1, S05 24.8 �2, S05 25.1 �1, S05 25.2 �1, S05 25.7 �1, S05 25.8 �1, S05 27.7 �1, S05 27.8 �1, S05 28.2 �1, S05 28.9 �1, S05 29.4 �1, S05 29.7 �1, S08 17.1 �1, S08 17.2 �1, S08 18.7 �1, S08 19.3 �3, S08 22.9 �1, S08 23.5 �1, S08 24.0 �1, S08 24.1 �1, S08 24.7 �1, S08 24.8 �1, S08 25.1 �1, S08 25.9 �1, S08 27.1 �1, S08 27.8 �1, S08 28.0 �1, S08 28.6 �1
+  p2: 105 leituras enviadas, 0 perdidas
+  TOTAL de leituras perdidas: 77
+
+===== 6. Truncagens (diverg�ncias resolvidas a partir do l�der) =====
+  p1 n3: de=seq 1, descartados=56 (termos 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1), leituras: S08 24.7, S05 27.8, S05 23.3, S08 19.3, S05 19.1, S08 28.0, S05 17.8, S05 17.5, S02 28.1, S02 24.2, S02 19.2, S02 23.0, S02 20.2, S02 25.2, S05 24.8, S05 23.6, S05 24.3, S02 29.8, S08 24.0, S08 27.8, S05 25.7, S05 25.2, S02 21.0, S05 17.9, S08 22.9, S02 23.9, S08 24.8, S02 26.7, S08 28.6, S05 29.4, S08 17.1, S08 18.7, S02 27.4, S02 24.2, S08 23.5, S05 29.7, S08 25.1, S05 23.4, S05 17.1, S05 25.8, ALARM-S01 28.2, S02 27.9, ALARM-S04 29.0, S02 22.0, S02 24.9, S05 28.9, S05 22.8, S08 17.2, S02 24.1, S05 22.6, S08 19.3, S05 27.7, S02 19.5, S05 24.8, S08 25.9, S05 20.5 | existem com outro seq no registo final do l�der (n1): 0
+  TOTAL de truncagens: 1
+
+===== 7. Coincid�ncia final dos n�s =====
+  p0: �ltimo seq por n� {1=137, 2=137, 3=137} | coincidem at� seq=137 � OK
+  p1: �ltimo seq por n� {1=11, 2=11, 3=11} | coincidem at� seq=11 � OK
+  p2: �ltimo seq por n� {1=116, 2=116, 3=116} | coincidem at� seq=116 � OK
+  TOTAL de seq divergentes: 0
+
+===== 8. Estado persistente final (estado-p<k>-n<i>.txt: termo;votouEm) =====
+  p0: n1(termo=1, votouEm=n1) n2(termo=1, votouEm=n1) n3(termo=1, votouEm=n1)
+  p1: n1(termo=2, votouEm=n1) n2(termo=2, votouEm=n1) n3(termo=2, votouEm=-)
+  p2: n1(termo=1, votouEm=n3) n2(termo=1, votouEm=n3) n3(termo=1, votouEm=n3)
+
+===== 9. Monitores (produtor / processador) =====
+  processador: {NOVO_LIDER=4, RECEBIDO=55, RETOMA=1, SUSPEITA=1}
+  produtor: {AVISO=2, NOVO_LIDER=4, RECEBIDO=54, RETOMA=1, SUSPEITA=1}
+
+====================================================================
+FIM do RaftCheck
+====================================================================

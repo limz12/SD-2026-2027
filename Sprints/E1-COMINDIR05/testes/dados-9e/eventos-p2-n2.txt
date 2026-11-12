@@ -1,0 +1,3 @@
+1794306341111;ARRANQUE;p2;termo=0;ultimoSeq=0;ultimoTermo=0
+1794306349889;CANDIDATO;p2;termo=1
+1794306349988;LIDER;p2;termo=1;votos=[1, 2]

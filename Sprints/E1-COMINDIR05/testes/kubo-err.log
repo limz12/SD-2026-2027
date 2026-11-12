@@ -1,0 +1,2 @@
+2026-11-10T10:20:04.839Z	ERROR	cmd/ipfs	kubo/daemon.go:426	The --enable-pubsub-experiment flag is deprecated. Use Pubsub.Enabled config option instead.
+2026-11-10T10:20:04.841Z	ERROR	core:constructor	node/groups.go:171	Invalid configuration, AutoTLS will be disabled: AutoTLS.AutoWSS=true requires at least one /tcp listener present in Addresses.Swarm, see https://github.com/ipfs/kubo/blob/master/docs/config.md#autotls

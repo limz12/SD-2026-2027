@@ -1,0 +1,25 @@
+1794306398940;ARRANQUE;p1;termo=0;ultimoSeq=0;ultimoTermo=0
+1794306405141;CANDIDATO;p1;termo=1
+1794306405153;LIDER;p1;termo=1;votos=[1]
+1794306405209;ERRO;p1;dois lideres no termo 1
+1794306405234;IGNORADO;p1;termo=1 (obsoleto; meu termo=1)
+1794306405247;VOTO;p1;termo=1;candidato=n3;recusado
+1794306405273;ERRO;p1;dois lideres no termo 1
+1794306405284;IGNORADO;p1;termo=1 (obsoleto; meu termo=1)
+1794306405338;VOTO;p1;termo=1;candidato=n2;recusado
+1794306407175;ERRO;p1;dois lideres no termo 1
+1794306407178;IGNORADO;p1;termo=1 (obsoleto; meu termo=1)
+1794306407192;ERRO;p1;dois lideres no termo 1
+1794306407197;IGNORADO;p1;termo=1 (obsoleto; meu termo=1)
+1794306409173;ERRO;p1;dois lideres no termo 1
+1794306409174;IGNORADO;p1;termo=1 (obsoleto; meu termo=1)
+1794306409194;ERRO;p1;dois lideres no termo 1
+1794306409197;IGNORADO;p1;termo=1 (obsoleto; meu termo=1)
+1794306411181;ERRO;p1;dois lideres no termo 1
+1794306411183;IGNORADO;p1;termo=1 (obsoleto; meu termo=1)
+1794306411186;ERRO;p1;dois lideres no termo 1
+1794306411187;IGNORADO;p1;termo=1 (obsoleto; meu termo=1)
+1794306413173;ERRO;p1;dois lideres no termo 1
+1794306413174;IGNORADO;p1;termo=1 (obsoleto; meu termo=1)
+1794306413192;ERRO;p1;dois lideres no termo 1
+1794306413193;IGNORADO;p1;termo=1 (obsoleto; meu termo=1)

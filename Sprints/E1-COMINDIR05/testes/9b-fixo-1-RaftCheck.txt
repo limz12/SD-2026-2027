@@ -1,0 +1,53 @@
+====================================================================
+RaftCheck � N = 3 � pasta: C:\Users\lmapl\Downloads\universidade_3ano\Sprints\E1-COMINDIR05\testes\dados-9b-fixo-1
+? = 2000 ms | elei��o em [6000, 6000] ms | indisponibilidade prevista: ]4000, 6200] ms
+====================================================================
+
+===== 1. Termos, candidatos, votos e l�deres =====
+--- p0 ---
+  termo 1: candidatos [1, 2, 3] (o 1.� candidato inclui o auto-voto) | votos concedidos: n1=0(2 recusados) n2=0(2 recusados) n3=0(2 recusados) -> VOTO DIVIDIDO (termo sem l�der) (durou 6074 ms at� � elei��o seguinte)
+  termo 2: candidatos [2] (o 1.� candidato inclui o auto-voto) | votos concedidos: n2=2 -> LIDER n2 (elei��o: 34 ms)
+--- p1 ---
+  termo 1: candidatos [1, 2, 3] (o 1.� candidato inclui o auto-voto) | votos concedidos: n1=0(2 recusados) n2=0(2 recusados) n3=0(2 recusados) -> VOTO DIVIDIDO (termo sem l�der) (durou 6026 ms at� � elei��o seguinte)
+  termo 2: candidatos [1, 2, 3] (o 1.� candidato inclui o auto-voto) | votos concedidos: n1=0(2 recusados) n2=0(2 recusados) n3=0(2 recusados) -> VOTO DIVIDIDO (termo sem l�der) (durou 6106 ms at� � elei��o seguinte)
+  termo 3: candidatos [2, 3] (o 1.� candidato inclui o auto-voto) | votos concedidos: n2=0(2 recusados) n3=1(1 recusados) -> LIDER n3 (elei��o: 40 ms)
+--- p2 ---
+  termo 1: candidatos [1, 2, 3] (o 1.� candidato inclui o auto-voto) | votos concedidos: n1=0(2 recusados) n2=0(2 recusados) n3=0(2 recusados) -> VOTO DIVIDIDO (termo sem l�der) (durou 6060 ms at� � elei��o seguinte)
+  termo 2: candidatos [2] (o 1.� candidato inclui o auto-voto) | votos concedidos: n2=2 -> LIDER n2 (elei��o: 35 ms)
+
+===== 2. Seguran�a da elei��o =====
+  Termos com mais de um LIDER: 0 � OK (deve ser zero)
+  Eventos ERRO 'dois lideres no termo': 0
+  Termo de cada n� nunca diminui:
+    OK em todos os n�s
+
+===== 3. Tempo at� ao primeiro l�der (desde o arranque do primeiro n�) =====
+  p0: 12245 ms (12.2 s) (n2; arranque t=1794306090421, LIDER t=1794306102666)
+  p1: 18370 ms (18.4 s) (n3; arranque t=1794306090485, LIDER t=1794306108855)
+  p2: 12309 ms (12.3 s) (n2; arranque t=1794306090561, LIDER t=1794306102870)
+
+===== 5. Leituras perdidas (n�o constam do registo final de nenhum n�) =====
+  p0: 0 leituras enviadas, 0 perdidas
+  p1: 0 leituras enviadas, 0 perdidas
+  p2: 0 leituras enviadas, 0 perdidas
+  TOTAL de leituras perdidas: 0
+
+===== 6. Truncagens (diverg�ncias resolvidas a partir do l�der) =====
+  TOTAL de truncagens: 0
+
+===== 7. Coincid�ncia final dos n�s =====
+  p0: sem ficheiros no-*
+  p1: sem ficheiros no-*
+  p2: sem ficheiros no-*
+  TOTAL de seq divergentes: 0
+
+===== 8. Estado persistente final (estado-p<k>-n<i>.txt: termo;votouEm) =====
+  p0: n1(termo=2, votouEm=n2) n2(termo=2, votouEm=n2) n3(termo=2, votouEm=n2)
+  p1: n1(termo=3, votouEm=n3) n2(termo=3, votouEm=n2) n3(termo=3, votouEm=n3)
+  p2: n1(termo=2, votouEm=n2) n2(termo=2, votouEm=n2) n3(termo=2, votouEm=n2)
+
+===== 9. Monitores (produtor / processador) =====
+
+====================================================================
+FIM do RaftCheck
+====================================================================

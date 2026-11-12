@@ -1,0 +1,50 @@
+====================================================================
+RaftCheck � N = 3 � pasta: C:\Users\lmapl\Downloads\universidade_3ano\Sprints\E1-COMINDIR05\testes\dados-f1-maioria
+? = 2000 ms | elei��o em [6000, 6000] ms | indisponibilidade prevista: ]4000, 6200] ms
+====================================================================
+
+===== 1. Termos, candidatos, votos e l�deres =====
+--- p0 ---
+  sem eventos de elei��o
+--- p1 ---
+  termo 1: candidatos [1, 2, 3] (o 1.� candidato inclui o auto-voto) | votos concedidos: n1=0(2 recusados) n2=0(2 recusados) n3=0(2 recusados) -> LIDER n1 (elei��o: 14 ms)  *** E TAMB�M n[2, 3] � DOIS L�DERES ***
+--- p2 ---
+  sem eventos de elei��o
+
+===== 2. Seguran�a da elei��o =====
+  Termos com mais de um LIDER: 1 � VIOLA��O da seguran�a
+  Eventos ERRO 'dois lideres no termo': 30
+  Termo de cada n� nunca diminui:
+    OK em todos os n�s
+
+===== 3. Tempo at� ao primeiro l�der (desde o arranque do primeiro n�) =====
+  p0: sem eventos
+  p1: 6208 ms (6.2 s) (n3; arranque t=1794306398940, LIDER t=1794306405148)
+  p2: sem eventos
+
+===== 5. Leituras perdidas (n�o constam do registo final de nenhum n�) =====
+  p0: 0 leituras enviadas, 0 perdidas
+  p1: 3 leituras enviadas, 0 perdidas
+  p2: 0 leituras enviadas, 0 perdidas
+  TOTAL de leituras perdidas: 0
+
+===== 6. Truncagens (diverg�ncias resolvidas a partir do l�der) =====
+  TOTAL de truncagens: 0
+
+===== 7. Coincid�ncia final dos n�s =====
+  p0: sem ficheiros no-*
+  p1: �ltimo seq por n� {1=3, 2=3, 3=3} | coincidem at� seq=3 � DIVERG�NCIAS nos seq [1, 2]
+  p2: sem ficheiros no-*
+  TOTAL de seq divergentes: 2
+
+===== 8. Estado persistente final (estado-p<k>-n<i>.txt: termo;votouEm) =====
+  p0: sem ficheiros estado-*
+  p1: n1(termo=1, votouEm=n1) n2(termo=1, votouEm=n2) n3(termo=1, votouEm=n3)
+  p2: sem ficheiros estado-*
+
+===== 9. Monitores (produtor / processador) =====
+  produtor: {NOVO_LIDER=1, RECEBIDO=15, RETOMA=1, SUSPEITA=3}
+
+====================================================================
+FIM do RaftCheck
+====================================================================

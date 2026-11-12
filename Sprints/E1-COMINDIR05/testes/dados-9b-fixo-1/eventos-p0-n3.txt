@@ -1,0 +1,11 @@
+1794306090450;ARRANQUE;p0;termo=0;ultimoSeq=0;ultimoTermo=0
+1794306096599;CANDIDATO;p0;termo=1
+1794306096618;VOTO;p0;termo=1;candidato=n1;recusado
+1794306096674;VOTO;p0;termo=1;candidato=n2;recusado
+1794306102643;TERMO;p0;1->2
+1794306102658;VOTO;p0;termo=2;candidato=n2;concedido
+1794306102679;NOVO_LIDER;p0;termo=2;lider=n2
+1794306102685;RECEBIDO;p0;termo=2,hb=1,lider=n2,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306104689;RECEBIDO;p0;termo=2,hb=2,lider=n2,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306106683;RECEBIDO;p0;termo=2,hb=3,lider=n2,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306108694;RECEBIDO;p0;termo=2,hb=4,lider=n2,ultimoSeq=0,ultimoTermo=0,n=0,seq=-

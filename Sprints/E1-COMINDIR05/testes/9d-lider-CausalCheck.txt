@@ -1,0 +1,40 @@
+========== CAUSAL CHECK ==========
+N�mero de parti��es: 3
+Pasta: C:\Users\lmapl\Downloads\universidade_3ano\Sprints\E1-COMINDIR05\testes\dados-9d-lider
+
+----- PARTI��O p0 -----
+Registos lidos (deduplicados por (seq, termo)): 122
+Verifica��o V[0] == seq: OK
+
+----- PARTI��O p1 -----
+Registos lidos (deduplicados por (seq, termo)): 41
+Verifica��o V[1] == seq: OK
+
+----- PARTI��O p2 -----
+Registos lidos (deduplicados por (seq, termo)): 99
+Verifica��o V[2] == seq: OK
+
+========== RELAT�RIO GLOBAL ==========
+Registos analisados: 262
+Pares de parti��es diferentes: 21139
+
+Classifica��o dos pares:
+  a ? b (BEFORE): 2217
+  b ? a (AFTER): 5242
+  Concorrentes (CONCURRENT): 13680
+  Anomalias de vetores iguais (EQUAL): 0
+  Conte�dos diferentes para o mesmo (seq, termo): 0
+
+Verifica��o dos rel�gios:
+  Viola��es V[k] == seq: 0
+  Viola��es de Lamport: 0
+  Registos inv�lidos: 0
+
+Concorr�ncia:
+  Pares concorrentes com L distinto: 13505
+  Propor��o: 98.72%
+
+Vista Lamport: C:\Users\lmapl\Downloads\universidade_3ano\Sprints\E1-COMINDIR05\testes\dados-9d-lider\vista-lamport.txt
+
+Resultado geral: OK
+======================================

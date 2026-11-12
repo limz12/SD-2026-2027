@@ -1,0 +1,51 @@
+====================================================================
+RaftCheck � N = 3 � pasta: C:\Users\lmapl\Downloads\universidade_3ano\Sprints\E1-COMINDIR05\testes\dados-sanidade
+? = 2000 ms | elei��o em [6000, 12000] ms | indisponibilidade prevista: ]4000, 12200] ms
+====================================================================
+
+===== 1. Termos, candidatos, votos e l�deres =====
+--- p0 ---
+  termo 1: candidatos [2] (o 1.� candidato inclui o auto-voto) | votos concedidos: n2=2 -> LIDER n2 (elei��o: 117 ms)
+--- p1 ---
+  termo 1: candidatos [1] (o 1.� candidato inclui o auto-voto) | votos concedidos: n1=2 -> LIDER n1 (elei��o: 90 ms)
+--- p2 ---
+  termo 1: candidatos [2] (o 1.� candidato inclui o auto-voto) | votos concedidos: n2=2 -> LIDER n2 (elei��o: 120 ms)
+
+===== 2. Seguran�a da elei��o =====
+  Termos com mais de um LIDER: 0 � OK (deve ser zero)
+  Eventos ERRO 'dois lideres no termo': 0
+  Termo de cada n� nunca diminui:
+    OK em todos os n�s
+
+===== 3. Tempo at� ao primeiro l�der (desde o arranque do primeiro n�) =====
+  p0: 6486 ms (6.5 s) (n2; arranque t=1794306006075, LIDER t=1794306012561)
+  p1: 6641 ms (6.6 s) (n1; arranque t=1794306006147, LIDER t=1794306012788)
+  p2: 7910 ms (7.9 s) (n2; arranque t=1794306006227, LIDER t=1794306014137)
+
+===== 5. Leituras perdidas (n�o constam do registo final de nenhum n�) =====
+  p0: 2 leituras enviadas, 0 perdidas
+  p1: 4 leituras enviadas, 0 perdidas
+  p2: 1 leituras enviadas, 0 perdidas
+  TOTAL de leituras perdidas: 0
+
+===== 6. Truncagens (diverg�ncias resolvidas a partir do l�der) =====
+  TOTAL de truncagens: 0
+
+===== 7. Coincid�ncia final dos n�s =====
+  p0: �ltimo seq por n� {1=2, 2=2, 3=2} | coincidem at� seq=2 � OK
+  p1: �ltimo seq por n� {1=4, 2=4, 3=4} | coincidem at� seq=4 � OK
+  p2: �ltimo seq por n� {1=2, 2=2, 3=2} | coincidem at� seq=2 � OK
+  TOTAL de seq divergentes: 0
+
+===== 8. Estado persistente final (estado-p<k>-n<i>.txt: termo;votouEm) =====
+  p0: n1(termo=1, votouEm=n2) n2(termo=1, votouEm=n2) n3(termo=1, votouEm=n2)
+  p1: n1(termo=1, votouEm=n1) n2(termo=1, votouEm=n1) n3(termo=1, votouEm=n1)
+  p2: n1(termo=1, votouEm=n2) n2(termo=1, votouEm=n2) n3(termo=1, votouEm=n2)
+
+===== 9. Monitores (produtor / processador) =====
+  processador: {NOVO_LIDER=3, RECEBIDO=21}
+  produtor: {NOVO_LIDER=3, RECEBIDO=21}
+
+====================================================================
+FIM do RaftCheck
+====================================================================

@@ -1,0 +1,42 @@
+========== CAUSAL CHECK ==========
+N�mero de parti��es: 3
+Pasta: C:\Users\lmapl\Downloads\universidade_3ano\Sprints\E1-COMINDIR05\testes\dados-f1-maioria
+
+----- PARTI��O p0 -----
+Registos lidos (deduplicados por (seq, termo)): 0
+Verifica��o V[0] == seq: OK
+
+----- PARTI��O p1 -----
+CONTE�DOS DIFERENTES para (seq=1, termo=1): 1;1;S05;21.0;2026-11-10T10:26:47.690;1;0,1,0 != 1;1;S05;21.0;2026-11-10T10:26:47.696;1;0,1,0
+CONTE�DOS DIFERENTES para (seq=2, termo=1): 2;1;S05;21.1;2026-11-10T10:26:47.913;2;0,2,0 != 2;1;S05;21.1;2026-11-10T10:26:47.914;2;0,2,0
+Registos lidos (deduplicados por (seq, termo)): 3
+Verifica��o V[1] == seq: OK
+
+----- PARTI��O p2 -----
+Registos lidos (deduplicados por (seq, termo)): 0
+Verifica��o V[2] == seq: OK
+
+========== RELAT�RIO GLOBAL ==========
+Registos analisados: 3
+Pares de parti��es diferentes: 0
+
+Classifica��o dos pares:
+  a ? b (BEFORE): 0
+  b ? a (AFTER): 0
+  Concorrentes (CONCURRENT): 0
+  Anomalias de vetores iguais (EQUAL): 0
+  Conte�dos diferentes para o mesmo (seq, termo): 2
+
+Verifica��o dos rel�gios:
+  Viola��es V[k] == seq: 0
+  Viola��es de Lamport: 0
+  Registos inv�lidos: 0
+
+Concorr�ncia:
+  Pares concorrentes com L distinto: 0
+  Sem pares concorrentes; propor��o n�o aplic�vel
+
+Vista Lamport: C:\Users\lmapl\Downloads\universidade_3ano\Sprints\E1-COMINDIR05\testes\dados-f1-maioria\vista-lamport.txt
+
+Resultado geral: ERROS DETETADOS
+======================================

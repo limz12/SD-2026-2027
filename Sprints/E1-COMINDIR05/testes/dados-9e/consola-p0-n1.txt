@@ -1,0 +1,2 @@
+N� n1 de p0/3 pronto (seguidor do termo 0): recupera��o em 127.0.0.1:7101 | elei��o em raft04-eleicao-p0 | entrada em raft04-in-p0
+?=2000 ms | prazo de elei��o em [6000, 12000] ms | ficheiro at� seq=0 (termo 0)

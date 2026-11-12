@@ -1,0 +1,11 @@
+1794306159876;ARRANQUE;p1;termo=0;ultimoSeq=0;ultimoTermo=0
+1794306166458;CANDIDATO;p1;termo=1
+1794306166609;LIDER;p1;termo=1;votos=[1, 2]
+1794306198103;ARRANQUE;p1;termo=1;ultimoSeq=63;ultimoTermo=1
+1794306199836;TERMO;p1;1->2
+1794306199844;NOVO_LIDER;p1;termo=2;lider=n1
+1794306199849;RECEBIDO;p1;termo=2,hb=12,lider=n1,ultimoSeq=61,ultimoTermo=2,n=0,seq=-
+1794306199880;TRUNCADO;p1;de=51;descartados=13;termos=1,1,1,1,1,1,1,1,1,1,1,1,1;leituras=S08:15.5,S02:27.0,S05:19.2,S05:28.7,S05:16.2,S05:23.7,S05:15.7,S02:28.3,S05:16.1,S05:29.1,S02:15.5,S08:23.4,S08:30.0
+1794306201831;RECEBIDO;p1;termo=2,hb=13,lider=n1,ultimoSeq=61,ultimoTermo=2,n=0,seq=-
+1794306203831;RECEBIDO;p1;termo=2,hb=14,lider=n1,ultimoSeq=61,ultimoTermo=2,n=0,seq=-
+1794306205832;RECEBIDO;p1;termo=2,hb=15,lider=n1,ultimoSeq=61,ultimoTermo=2,n=0,seq=-

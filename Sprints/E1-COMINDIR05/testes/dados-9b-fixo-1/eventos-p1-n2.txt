@@ -1,0 +1,11 @@
+1794306090504;ARRANQUE;p1;termo=0;ultimoSeq=0;ultimoTermo=0
+1794306096688;CANDIDATO;p1;termo=1
+1794306096765;VOTO;p1;termo=1;candidato=n3;recusado
+1794306096813;VOTO;p1;termo=1;candidato=n1;recusado
+1794306102714;CANDIDATO;p1;termo=2
+1794306102714;VOTO;p1;termo=2;candidato=n3;recusado
+1794306102724;VOTO;p1;termo=2;candidato=n1;recusado
+1794306108818;CANDIDATO;p1;termo=3
+1794306108823;VOTO;p1;termo=3;candidato=n3;recusado
+1794306108875;NOVO_LIDER;p1;termo=3;lider=n3
+1794306108887;RECEBIDO;p1;termo=3,hb=1,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-

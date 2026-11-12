@@ -1,0 +1,5 @@
+Processador de alarmes pronto (N = 3, limiar = 28.0 �C, ?=2000 ms, timeout=6000 ms, API http://127.0.0.1:5001/api/v0).
+[monitor] 1794306269753;NOVO_LIDER;p2;termo=0->1;lider=n1
+[monitor] 1794306270063;NOVO_LIDER;p0;termo=0->1;lider=n2
+[monitor] 1794306270281;NOVO_LIDER;p1;termo=0->1;lider=n2
+[monitor] 1794306332805;NOVO_LIDER;p1;termo=1->8;lider=n1
