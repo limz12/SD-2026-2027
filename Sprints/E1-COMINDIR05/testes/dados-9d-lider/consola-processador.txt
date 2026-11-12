@@ -1,0 +1,9 @@
+Processador de alarmes pronto (N = 3, limiar = 28.0 �C, ?=2000 ms, timeout=6000 ms, API http://127.0.0.1:5001/api/v0).
+[monitor] 1794306220901;NOVO_LIDER;p0;termo=0->1;lider=n2
+[monitor] 1794306222119;NOVO_LIDER;p1;termo=0->1;lider=n2
+[monitor] 1794306222270;NOVO_LIDER;p2;termo=0->1;lider=n1
+--- RESUMO processador --- registos=234 | alarmes=28 | ignorados(ALARM-)=8 | duplicados=0 | obsoletos=0 | rejeitados=0 | falhas=0 | avisos(sem l�der)=0 | Lp=118 | Vp=118,31,89
+[monitor] 1794306228244;SUSPEITA;p1;silencio_ms=6121
+[monitor] 1794306230582;NOVO_LIDER;p1;termo=1->2;lider=n3
+[monitor] 1794306230584;RETOMA;p1;termo=2;hb=1
+--- RESUMO processador --- registos=10 | alarmes=10 | ignorados(ALARM-)=10 | duplicados=0 | obsoletos=0 | rejeitados=0 | falhas=0 | avisos(sem l�der)=0 | Lp=118 | Vp=118,41,89

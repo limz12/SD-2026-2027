@@ -1,0 +1,4 @@
+N� n2 de p0/3 pronto (seguidor do termo 0): recupera��o em 127.0.0.1:7102 | elei��o em raft04-eleicao-p0 | entrada em raft04-in-p0
+?=2000 ms | prazo de elei��o em [6000, 12000] ms | ficheiro at� seq=0 (termo 0)
+[n2] L�DER de p0: seq=0 L=0 V=0,0,0
+--- RESUMO n2 p0 --- registos=144 | 1.�=1794306169684 ms | �ltimo=1794306172264 ms | dura��o=2580 ms | d�bito=55 registos/s | rejeitados=0 | �ltimo seq=144 (termo 1)

@@ -1,0 +1,56 @@
+====================================================================
+RaftCheck � N = 3 � pasta: C:\Users\lmapl\Downloads\universidade_3ano\Sprints\E1-COMINDIR05\testes\dados-f3-uptodate
+? = 2000 ms | elei��o em [6000, 12000] ms | indisponibilidade prevista: ]4000, 12200] ms
+====================================================================
+
+===== 1. Termos, candidatos, votos e l�deres =====
+--- p0 ---
+  sem eventos de elei��o
+--- p1 ---
+  termo 1: candidatos [1] (o 1.� candidato inclui o auto-voto) | votos concedidos: n1=2 -> LIDER n1 (elei��o: 91 ms)
+  termo 2: candidatos [3] (o 1.� candidato inclui o auto-voto) | votos concedidos: n3=1 -> LIDER n3 (elei��o: 57 ms)
+--- p2 ---
+  sem eventos de elei��o
+
+===== 2. Seguran�a da elei��o =====
+  Termos com mais de um LIDER: 0 � OK (deve ser zero)
+  Eventos ERRO 'dois lideres no termo': 0
+  Termo de cada n� nunca diminui:
+    OK em todos os n�s
+
+===== 3. Tempo at� ao primeiro l�der (desde o arranque do primeiro n�) =====
+  p0: sem eventos
+  p1: 6233 ms (6.2 s) (n1; arranque t=1794306414736, LIDER t=1794306420969)
+  p2: sem eventos
+
+===== 4. Indisponibilidade por falha (falha -> 1.� LOTE de termo superior) =====
+  falha 1: p1 n1 em t=1794306429002 (termo do l�der = 1) -> novo l�der n3 (termo 2, hb=1, t=1794306435586) -> INDISPONIBILIDADE 6584 ms (6.6 s)
+     leituras enviadas para p1 no intervalo: nenhuma
+
+===== 5. Leituras perdidas (n�o constam do registo final de nenhum n�) =====
+  p0: 0 leituras enviadas, 0 perdidas
+  p1: 7 leituras enviadas, 0 perdidas
+  p2: 0 leituras enviadas, 0 perdidas
+  TOTAL de leituras perdidas: 0
+
+===== 6. Truncagens (diverg�ncias resolvidas a partir do l�der) =====
+  p1 n2: de=seq 4, descartados=3 (termos 1,1,1), leituras: S05 21.3, S05 21.4, S05 21.5 | existem com outro seq no registo final do l�der (n3): 0
+  TOTAL de truncagens: 1
+
+===== 7. Coincid�ncia final dos n�s =====
+  p0: sem ficheiros no-*
+  p1: �ltimo seq por n� {1=6, 2=4, 3=4} | coincidem at� seq=4 � DIVERG�NCIAS nos seq [4]
+  p2: sem ficheiros no-*
+  TOTAL de seq divergentes: 1
+
+===== 8. Estado persistente final (estado-p<k>-n<i>.txt: termo;votouEm) =====
+  p0: sem ficheiros estado-*
+  p1: n1(termo=1, votouEm=n1) n2(termo=2, votouEm=n3) n3(termo=2, votouEm=n3)
+  p2: sem ficheiros estado-*
+
+===== 9. Monitores (produtor / processador) =====
+  produtor: {NOVO_LIDER=2, RECEBIDO=6, RETOMA=1, SUSPEITA=3}
+
+====================================================================
+FIM do RaftCheck
+====================================================================

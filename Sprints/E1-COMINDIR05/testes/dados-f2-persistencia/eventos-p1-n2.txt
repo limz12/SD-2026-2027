@@ -1,0 +1,6 @@
+1794306464101;ARRANQUE;p1;termo=0;ultimoSeq=0;ultimoTermo=0
+1794306471111;TERMO;p1;0->1
+1794306471122;VOTO;p1;termo=1;candidato=n3;concedido
+1794306471197;NOVO_LIDER;p1;termo=1;lider=n3
+1794306471210;RECEBIDO;p1;termo=1,hb=1,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306473189;RECEBIDO;p1;termo=1,hb=2,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-

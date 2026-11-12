@@ -1,0 +1,22 @@
+Produtor pronto (N = 3, API http://127.0.0.1:5001/api/v0, ?=2000 ms, timeout=6000 ms).
+Comandos: <sensor> <temperatura> | rajada <n> <s> | rajada-quente <n> <s> | sair
+> ? p1
+> ? p1
+> ? p1
+> 
+[monitor] 1794306422996;NOVO_LIDER;p1;termo=0->1;lider=n1
+? p1
+> ? p1
+> ? p1
+> 
+[monitor] 1794306427368;SUSPEITA;p0;silencio_ms=6146
+
+[monitor] 1794306427369;SUSPEITA;p2;silencio_ms=6152
+
+[monitor] 1794306433092;SUSPEITA;p1;silencio_ms=6103
+
+[monitor] 1794306435585;NOVO_LIDER;p1;termo=1->2;lider=n3
+
+[monitor] 1794306435590;RETOMA;p1;termo=2;hb=1
+? p1
+> Produtor terminado (sair). Os n�s e o processador continuam a correr.

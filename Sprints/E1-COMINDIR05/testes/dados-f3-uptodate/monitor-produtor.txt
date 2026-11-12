@@ -1,0 +1,12 @@
+1794306422996;NOVO_LIDER;p1;termo=0->1;lider=n1
+1794306423000;RECEBIDO;p1;termo=1,hb=2,lider=n1,ultimoSeq=3,n=3,seq=-
+1794306424989;RECEBIDO;p1;termo=1,hb=3,lider=n1,ultimoSeq=3,n=0,seq=-
+1794306426989;RECEBIDO;p1;termo=1,hb=4,lider=n1,ultimoSeq=6,n=3,seq=-
+1794306427368;SUSPEITA;p0;silencio_ms=6146
+1794306427369;SUSPEITA;p2;silencio_ms=6152
+1794306433092;SUSPEITA;p1;silencio_ms=6103
+1794306435585;NOVO_LIDER;p1;termo=1->2;lider=n3
+1794306435590;RETOMA;p1;termo=2;hb=1
+1794306435592;RECEBIDO;p1;termo=2,hb=1,lider=n3,ultimoSeq=3,n=0,seq=-
+1794306437596;RECEBIDO;p1;termo=2,hb=2,lider=n3,ultimoSeq=4,n=1,seq=-
+1794306439598;RECEBIDO;p1;termo=2,hb=3,lider=n3,ultimoSeq=4,n=0,seq=-

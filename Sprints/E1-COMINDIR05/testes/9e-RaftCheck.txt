@@ -1,0 +1,61 @@
+====================================================================
+RaftCheck � N = 3 � pasta: C:\Users\lmapl\Downloads\universidade_3ano\Sprints\E1-COMINDIR05\testes\dados-9e
+? = 2000 ms | elei��o em [6000, 12000] ms | indisponibilidade prevista: ]4000, 12200] ms
+====================================================================
+
+===== 1. Termos, candidatos, votos e l�deres =====
+--- p0 ---
+  termo 1: candidatos [2] (o 1.� candidato inclui o auto-voto) | votos concedidos: n2=2 -> LIDER n2 (elei��o: 104 ms)
+--- p1 ---
+  termo 1: candidatos [2] (o 1.� candidato inclui o auto-voto) | votos concedidos: n2=2 -> LIDER n2 (elei��o: 60 ms)
+  termo 2: candidatos [1] (o 1.� candidato inclui o auto-voto) | sem votos de outros n�s -> VOTO DIVIDIDO (termo sem l�der) (durou 8183 ms at� � elei��o seguinte)
+  termo 3: candidatos [1] (o 1.� candidato inclui o auto-voto) | sem votos de outros n�s -> VOTO DIVIDIDO (termo sem l�der) (durou 6109 ms at� � elei��o seguinte)
+  termo 4: candidatos [1] (o 1.� candidato inclui o auto-voto) | sem votos de outros n�s -> VOTO DIVIDIDO (termo sem l�der) (durou 8347 ms at� � elei��o seguinte)
+  termo 5: candidatos [1] (o 1.� candidato inclui o auto-voto) | votos concedidos: n1=1 -> LIDER n1 (elei��o: 91 ms)
+--- p2 ---
+  termo 1: candidatos [2] (o 1.� candidato inclui o auto-voto) | votos concedidos: n2=2 -> LIDER n2 (elei��o: 99 ms)
+
+===== 2. Seguran�a da elei��o =====
+  Termos com mais de um LIDER: 0 � OK (deve ser zero)
+  Eventos ERRO 'dois lideres no termo': 0
+  Termo de cada n� nunca diminui:
+    OK em todos os n�s
+
+===== 3. Tempo at� ao primeiro l�der (desde o arranque do primeiro n�) =====
+  p0: 10130 ms (10.1 s) (n2; arranque t=1794306341029, LIDER t=1794306351159)
+  p1: 8474 ms (8.5 s) (n2; arranque t=1794306341057, LIDER t=1794306349531)
+  p2: 8877 ms (8.9 s) (n2; arranque t=1794306341111, LIDER t=1794306349988)
+
+===== 4. Indisponibilidade por falha (falha -> 1.� LOTE de termo superior) =====
+  falha 1: p1 n2 em t=1794306353580 (termo do l�der = 1) -> novo l�der n1 (termo 5, hb=1, t=1794306387285) -> INDISPONIBILIDADE 33705 ms (33.7 s)
+     leituras enviadas para p1 no intervalo: 15 -> S05 210.5 (t=1794306353599), S05 211.5 (t=1794306355604), S05 212.5 (t=1794306357618), S05 213.5 (t=1794306359625), S05 214.5 (t=1794306361632), S05 215.5 (t=1794306363644), S05 216.5 (t=1794306365654), S05 217.5 (t=1794306367658), S05 218.5 (t=1794306369671), S05 219.5 (t=1794306371682), S05 220.5 (t=1794306373696), S05 221.5 (t=1794306375708), S05 222.5 (t=1794306377720), S05 223.5 (t=1794306379728), S05 224.5 (t=1794306381733)
+  falha 2: p1 n3 em t=1794306353597 (termo do l�der = 1) -> novo l�der n1 (termo 5, hb=1, t=1794306387285) -> INDISPONIBILIDADE 33688 ms (33.7 s)
+     leituras enviadas para p1 no intervalo: 15 -> S05 210.5 (t=1794306353599), S05 211.5 (t=1794306355604), S05 212.5 (t=1794306357618), S05 213.5 (t=1794306359625), S05 214.5 (t=1794306361632), S05 215.5 (t=1794306363644), S05 216.5 (t=1794306365654), S05 217.5 (t=1794306367658), S05 218.5 (t=1794306369671), S05 219.5 (t=1794306371682), S05 220.5 (t=1794306373696), S05 221.5 (t=1794306375708), S05 222.5 (t=1794306377720), S05 223.5 (t=1794306379728), S05 224.5 (t=1794306381733)
+
+===== 5. Leituras perdidas (n�o constam do registo final de nenhum n�) =====
+  p0: 0 leituras enviadas, 0 perdidas
+  p1: 16 leituras enviadas, 15 perdidas -> S05 210.5 �1, S05 211.5 �1, S05 212.5 �1, S05 213.5 �1, S05 214.5 �1, S05 215.5 �1, S05 216.5 �1, S05 217.5 �1, S05 218.5 �1, S05 219.5 �1, S05 220.5 �1, S05 221.5 �1, S05 222.5 �1, S05 223.5 �1, S05 224.5 �1
+  p2: 0 leituras enviadas, 0 perdidas
+  TOTAL de leituras perdidas: 15
+
+===== 6. Truncagens (diverg�ncias resolvidas a partir do l�der) =====
+  TOTAL de truncagens: 0
+
+===== 7. Coincid�ncia final dos n�s =====
+  p0: sem ficheiros no-*
+  p1: �ltimo seq por n� {1=1, 3=1} | coincidem at� seq=1 � OK
+  p2: �ltimo seq por n� {1=1, 2=1, 3=1} | coincidem at� seq=1 � OK
+  TOTAL de seq divergentes: 0
+
+===== 8. Estado persistente final (estado-p<k>-n<i>.txt: termo;votouEm) =====
+  p0: n1(termo=1, votouEm=n2) n2(termo=1, votouEm=n2) n3(termo=1, votouEm=n2)
+  p1: n1(termo=5, votouEm=n1) n2(termo=1, votouEm=n2) n3(termo=5, votouEm=n1)
+  p2: n1(termo=1, votouEm=n2) n2(termo=1, votouEm=n2) n3(termo=1, votouEm=n2)
+
+===== 9. Monitores (produtor / processador) =====
+  processador: {NOVO_LIDER=4, RECEBIDO=51, RETOMA=1, SUSPEITA=1}
+  produtor: {AVISO=11, NOVO_LIDER=4, RECEBIDO=50, RETOMA=1, SUSPEITA=1}
+
+====================================================================
+FIM do RaftCheck
+====================================================================

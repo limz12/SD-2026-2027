@@ -1,0 +1,13 @@
+1794306441251;ARRANQUE;p1;termo=0;ultimoSeq=0;ultimoTermo=0
+1794306448328;TERMO;p1;0->1
+1794306448356;VOTO;p1;termo=1;candidato=n3;concedido
+1794306448459;NOVO_LIDER;p1;termo=1;lider=n3
+1794306448479;RECEBIDO;p1;termo=1,hb=1,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306449617;IGNORADO;p1;leitura=S05
+1794306449786;IGNORADO;p1;leitura=S05
+1794306450008;IGNORADO;p1;leitura=S05
+1794306450448;RECEBIDO;p1;termo=1,hb=2,lider=n3,ultimoSeq=3,ultimoTermo=1,n=3,seq=1..3
+1794306452443;RECEBIDO;p1;termo=1,hb=3,lider=n3,ultimoSeq=3,ultimoTermo=1,n=0,seq=-
+1794306458817;CANDIDATO;p1;termo=2
+1794306458881;LIDER;p1;termo=2;votos=[1, 2]
+1794306458883;ERRO;p1;inicializou L=0 e V=0 com ultimoSeq=3 (falha introduzida)

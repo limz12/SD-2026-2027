@@ -1,0 +1,3 @@
+N� n2 de p2/3 pronto (seguidor do termo 0): recupera��o em 127.0.0.1:7122 | elei��o em raft04-eleicao-p2 | entrada em raft04-in-p2
+?=2000 ms | prazo de elei��o em [6000, 6000] ms | ficheiro at� seq=0 (termo 0)
+[n2] L�DER de p2: seq=0 L=0 V=0,0,0

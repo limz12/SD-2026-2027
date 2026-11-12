@@ -1,0 +1,14 @@
+1794306474088;ARRANQUE;p2;termo=0;ultimoSeq=0;ultimoTermo=0
+1794306480554;TERMO;p2;0->1
+1794306480590;VOTO;p2;termo=1;candidato=n3;concedido
+1794306480708;NOVO_LIDER;p2;termo=1;lider=n3
+1794306480722;RECEBIDO;p2;termo=1,hb=1,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306482668;RECEBIDO;p2;termo=1,hb=2,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306484672;RECEBIDO;p2;termo=1,hb=3,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306486667;RECEBIDO;p2;termo=1,hb=4,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306488675;RECEBIDO;p2;termo=1,hb=5,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306490670;RECEBIDO;p2;termo=1,hb=6,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306492684;RECEBIDO;p2;termo=1,hb=7,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306494674;RECEBIDO;p2;termo=1,hb=8,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306496667;RECEBIDO;p2;termo=1,hb=9,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
+1794306498672;RECEBIDO;p2;termo=1,hb=10,lider=n3,ultimoSeq=0,ultimoTermo=0,n=0,seq=-
