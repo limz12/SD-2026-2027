@@ -66,7 +66,8 @@ public final class MasterKey {
                 AclEntryPermission.WRITE_ATTRIBUTES,
                 AclEntryPermission.READ_ACL,
                 AclEntryPermission.WRITE_ACL,
-                AclEntryPermission.DELETE
+                AclEntryPermission.DELETE,
+                AclEntryPermission.SYNCHRONIZE
             )
             .build();
              // Aplicar permissões

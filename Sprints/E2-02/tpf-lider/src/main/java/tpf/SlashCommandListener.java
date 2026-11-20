@@ -4,12 +4,15 @@ package tpf;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.*;
+
+
 
 public class SlashCommandListener extends ListenerAdapter {
 
@@ -20,6 +23,7 @@ public class SlashCommandListener extends ListenerAdapter {
     public SlashCommandListener(LeaderBot leaderBot) {
         this.leaderBot = leaderBot;
     }
+
 
     private static final Set<String> COMANDOS_ADMIN = Set.of(
         "config", "replica-token", "replica-remover", "rajada"
@@ -117,11 +121,10 @@ public class SlashCommandListener extends ListenerAdapter {
         }
 
         try {
-
-            // Pedir ao LeaderBot para guardar o registo
+            // Pedir ao LeaderBot para guardar o registo (com "#" para manter consistência com ArquivoChannelListener)
             long lsn = leaderBot.registar(
                 event.getUser().getName(),
-                event.getChannel().getName(),
+                "#" + event.getChannel().getName(),
                 texto
             );
 
@@ -130,7 +133,6 @@ public class SlashCommandListener extends ListenerAdapter {
                 .queue();
 
         } catch (IOException e) {
-
             responderErro(event, "Erro ao guardar o registo.");
             e.printStackTrace();
         }
@@ -190,9 +192,51 @@ public class SlashCommandListener extends ListenerAdapter {
             return;
         }
 
-        event.reply("`/rajada` recebido: n=" + n
-            + ", intervaloMs=" + intervaloMs
-            + " — ainda não implementado").queue();
+        String autor = event.getUser().getName();
+        String canal = "#" + event.getChannel().getName();
+
+        // Adiar a resposta para o Discord não dar timeout (3s) em rajadas longas
+        event.deferReply().queue(hook -> {
+            CompletableFuture.runAsync(() -> {
+                long primeiroLsn = -1;
+                long ultimoLsn = -1;
+
+                try {
+                    for (int i = 1; i <= n; i++) {
+                        String textoSintetico = String.format(
+                            "[RAJADA %d/%d] Registo sintético de teste", i, n
+                        );
+
+                        // Passa exatamente pelo mesmo caminho de /registar e #arquivo
+                        long lsn = leaderBot.registar(autor, canal, textoSintetico);
+
+                        if (i == 1) {
+                            primeiroLsn = lsn;
+                        }
+                        ultimoLsn = lsn;
+
+                        if (intervaloMs > 0 && i < n) {
+                            Thread.sleep(intervaloMs);
+                        }
+                    }
+
+                    hook.editOriginal(
+                        String.format(
+                            "Rajada concluída: **%d** registos injetados (LSN **%d** a **%d**, intervalo: %d ms).",
+                            n, primeiroLsn, ultimoLsn, intervaloMs
+                        )
+                    ).queue();
+
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    hook.editOriginal("Rajada interrompida.").queue();
+                } catch (IOException e) {
+                    hook.editOriginal("Erro de I/O durante a rajada (último LSN gravado: " + ultimoLsn + ").").queue();
+                    e.printStackTrace();
+                }
+            });
+        });
+        
     }
 
     private boolean isAdmin(Member member) {
