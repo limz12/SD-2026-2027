@@ -4,7 +4,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class EnvConfig {
     private static final Dotenv dotenv = Dotenv.configure()
-            .directory("Sprints/E2-01/tpf-lider/src/main/java/tpf")
+            .directory("Sprints/E2-02/tpf-lider/src/main/java/tpf")
             .ignoreIfMissing()
             .load();
 
