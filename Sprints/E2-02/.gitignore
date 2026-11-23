@@ -1,0 +1,19 @@
+# --- SEGREDOS: nunca vao para o repositorio ---
+leader.properties
+.env
+*.env
+token.txt
+master.key
+*.key
+
+# --- dados do lider (registo duravel e chunks cifrados) ---
+registos.log
+eventos-lider.txt
+selados/
+
+# --- build / IDE ---
+target/
+out/
+.idea/
+*.iml
+.DS_Store
