@@ -1,2 +1,8 @@
 .clawdea/REPO_STATE.md
 .env
+# Chave mestra privada do líder
+**/dados-lider/master.key
+# Dados locais de execução do líder
+**/dados-lider/
+# Artefactos Maven do sprint E2-02
+/Sprints/E2-02/tpf-lider/target/
