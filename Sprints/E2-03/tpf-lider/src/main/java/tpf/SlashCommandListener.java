@@ -29,11 +29,22 @@ public final class SlashCommandListener extends ListenerAdapter {
     private final RegistoService registoService;
     private final String guildId;
     private final String canalArquivoId;
+    private final PubSubHub pubSubHub;
+    private final ReplicationManager replicationManager;
 
     public SlashCommandListener(
             RegistoService registoService,
             String guildId,
             String canalArquivoId) {
+        this(registoService, guildId, canalArquivoId, null, null);
+    }
+
+    public SlashCommandListener(
+            RegistoService registoService,
+            String guildId,
+            String canalArquivoId,
+            PubSubHub pubSubHub,
+            ReplicationManager replicationManager) {
 
         this.registoService = Objects.requireNonNull(
             registoService,
@@ -49,6 +60,8 @@ public final class SlashCommandListener extends ListenerAdapter {
             canalArquivoId,
             "ID do canal de arquivo obrigatório."
         );
+        this.pubSubHub = pubSubHub;
+        this.replicationManager = replicationManager;
     }
 
     /**
@@ -194,11 +207,7 @@ public final class SlashCommandListener extends ListenerAdapter {
             case "registar" ->
                 cmdRegistar(event);
 
-            case "estado" ->
-                event.reply(
-                    "`/estado` recebido — "
-                    + "ainda não implementado"
-                ).queue();
+            case "estado" -> cmdEstado(event);
 
             case "config" ->
                 cmdConfig(event);
@@ -206,11 +215,7 @@ public final class SlashCommandListener extends ListenerAdapter {
             case "recuperar" ->
                 cmdRecuperar(event);
 
-            case "replica-token" ->
-                event.reply(
-                    "`/replica-token` recebido — "
-                    + "ainda não implementado"
-                ).queue();
+            case "replica-token" -> cmdReplicaToken(event);
 
             case "replica-remover" ->
                 cmdReplicaRemover(event);
@@ -492,11 +497,54 @@ public final class SlashCommandListener extends ListenerAdapter {
             return;
         }
 
-        event.reply(
-            "`/replica-remover` recebido: id="
-            + id
-            + " — ainda não implementado"
-        ).queue();
+        if (pubSubHub == null || replicationManager == null) {
+            responderErro(event, "O serviço de réplicas não está disponível.");
+            return;
+        }
+        try {
+            pubSubHub.removerReplica(id);
+            replicationManager.registry().remover(id);
+            event.reply("Réplica **" + id + "** removida.").setEphemeral(true).queue();
+        } catch (IOException e) {
+            responderErro(event, "Não foi possível remover a réplica: " + e.getMessage());
+        }
+    }
+
+    private void cmdReplicaToken(SlashCommandInteractionEvent event) {
+        if (pubSubHub == null) {
+            responderErro(event, "O serviço de réplicas não está disponível.");
+            return;
+        }
+        String token = pubSubHub.gerarToken();
+        event.reply("Token de uso único (válido por 10 minutos):\n`" + token + "`")
+                .setEphemeral(true).queue();
+    }
+
+    private void cmdEstado(SlashCommandInteractionEvent event) {
+        if (replicationManager == null) {
+            event.reply("Estado do arquivo local: LSN " + registoService.getUltimoLsn()).queue();
+            return;
+        }
+        var catalog = replicationManager.catalog();
+        var replicas = replicationManager.registry().todos();
+        long sealed = catalog.entradas().stream()
+                .filter(entry -> entry.estado() == EntradaCatalogo.Estado.SELADO).count();
+        long durable = catalog.entradas().stream()
+                .filter(entry -> entry.estado() == EntradaCatalogo.Estado.DURAVEL).count();
+        long underReplicated = catalog.entradas().stream()
+                .filter(entry -> entry.replicas().size() < Wire.R).count();
+        StringBuilder text = new StringBuilder("**Réplicas**\n");
+        if (replicas.isEmpty()) text.append("Nenhuma réplica com heartbeat recebido.\n");
+        for (var replica : replicas) {
+            text.append("- `").append(replica.id()).append("`: ").append(replica.estado())
+                    .append(" — ").append(replica.usados()).append("/").append(replica.quota())
+                    .append(" bytes\n");
+        }
+        text.append("**Chunks:** SELADO ").append(sealed).append(", DURAVEL ").append(durable)
+                .append(", subreplicados ").append(underReplicated)
+                .append(" (").append(catalog.entradas().size()).append(" total)");
+        if (text.length() > 1900) text.setLength(1900);
+        event.reply(text.toString()).queue();
     }
 
     private void cmdRajada(

@@ -47,6 +47,11 @@ public final class RegistoService implements AutoCloseable {
      * Recebe a instância única de RegistoLog.
      */
     public RegistoService(RegistoLog registoLog, MasterKey masterKey, java.nio.file.Path dados) throws IOException {
+        this(registoLog, masterKey, dados, null);
+    }
+
+    public RegistoService(RegistoLog registoLog, MasterKey masterKey, java.nio.file.Path dados,
+                          ReplicationManager replicationManager) throws IOException {
 
         this.registoLog = Objects.requireNonNull(
             registoLog,
@@ -55,6 +60,10 @@ public final class RegistoService implements AutoCloseable {
         byte[] chave = masterKey.getBytes();
         try { this.arquivo = new ArquivoLocal(registoLog, chave, dados); }
         finally { java.util.Arrays.fill(chave, (byte) 0); }
+        if (replicationManager != null) {
+            this.arquivo.setOnSealed(replicationManager::onSealed);
+            for (SealedChunk chunk : this.arquivo.sealedChunks()) replicationManager.onSealed(chunk);
+        }
 
         /*
          * Uma única thread preserva a ordem

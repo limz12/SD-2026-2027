@@ -6,3 +6,12 @@
 **/dados-lider/
 # Artefactos Maven do sprint E2-02
 /Sprints/E2-02/tpf-lider/target/
+# Artefactos Maven do sprint E2-03
+/Sprints/E2-03/tpf-lider/target/
+/Sprints/E2-03/tpf-replica/target/
+# Dados privados das réplicas
+**/dados-*/replica.pk8
+**/dados-*/replica.pub
+**/dados-*/registered
+**/dados-*/chunks/
+**/dados-*/eventos-*.txt
