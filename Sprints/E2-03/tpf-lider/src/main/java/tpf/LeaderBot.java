@@ -27,7 +27,20 @@ public final class LeaderBot {
                 "tpf.dataDir",
                 "tpf.chunkMaxBytes",
                 "tpf.padBytes",
-                "tpf.selagemMs"
+                "tpf.selagemMs",
+                "tpf.porto",
+                "tpf.periodoHbMs",
+                "tpf.suspeitaMs",
+                "tpf.mortaMs",
+                "tpf.tokenValidadeMs",
+                "tpf.r",
+                "tpf.wMin",
+                "tpf.ackTimeoutMs",
+                "tpf.maxRondas",
+                "tpf.margemBytes",
+                "tpf.alfa",
+                "tpf.backoffMinMs",
+                "tpf.backoffMaxMs"
             );
 
     private LeaderBot() {
@@ -65,7 +78,11 @@ public final class LeaderBot {
 
         if (chunkMax <= 0
                 || padBytes <= 0
-                || selagemMs <= 0) {
+                || selagemMs <= 0
+                || Wire.PORTO > 65535
+                || Wire.W_MIN > Wire.R
+                || Wire.BACKOFF_MAX_MS < Wire.BACKOFF_MIN_MS
+                || Wire.MORTA_MS < Wire.SUSPEITA_MS) {
 
             throw new IllegalArgumentException(
                 "Configuração Wire inválida."
@@ -177,8 +194,12 @@ public final class LeaderBot {
         JDA jda = null;
         RegistoLog registoLog = null;
         RegistoService registoService = null;
+        PubSubHub hub = null;
+        HeartbeatMonitor heartbeatMonitor = null;
+        ReplicationManager replicationManager = null;
 
         boolean inicializado = false;
+        boolean hubIniciado = false;
 
         try {
 
@@ -218,8 +239,22 @@ public final class LeaderBot {
              * Ambos os listeners utilizarão
              * esta mesma instância.
              */
-            registoService =
-                    new RegistoService(registoLog, masterKey, pastaDados);
+            LeaderEvents eventos = new LeaderEvents(pastaDados.resolve("eventos-lider.txt"));
+            Catalog catalog = new Catalog(pastaDados.resolve("catalogo.txt"));
+            ReplicaRegistry replicaRegistry = new ReplicaRegistry(eventos::log);
+            heartbeatMonitor = new HeartbeatMonitor(replicaRegistry);
+            java.util.concurrent.atomic.AtomicReference<ReplicationManager> managerRef =
+                    new java.util.concurrent.atomic.AtomicReference<>();
+            hub = new PubSubHub(Wire.PORTO, pastaDados, eventos, (id, message) -> {
+                ReplicationManager manager = managerRef.get();
+                if (manager != null) manager.onReplicaMessage(id, message);
+            });
+            replicationManager = new ReplicationManager(replicaRegistry, catalog, hub, eventos);
+            managerRef.set(replicationManager);
+            registoService = new RegistoService(registoLog, masterKey, pastaDados, replicationManager);
+            hub.start();
+            hubIniciado = true;
+            hub.awaitReady(10000);
 
             System.out.println(
                 "Chave mestra inicializada."
@@ -279,7 +314,9 @@ public final class LeaderBot {
                     new SlashCommandListener(
                         registoService,
                         guildId,
-                        canalArquivoId
+                        canalArquivoId,
+                        hub,
+                        replicationManager
                     );
 
             ArquivoChannelListener arquivoListener =
@@ -313,12 +350,14 @@ public final class LeaderBot {
             final JDA botFinal = jda;
             final RegistoService serviceFinal =
                     registoService;
+            final PubSubHub hubFinal = hub;
+            final HeartbeatMonitor monitorFinal = heartbeatMonitor;
+            final ReplicationManager replicationFinal = replicationManager;
 
             Runtime.getRuntime().addShutdownHook(
                 new Thread(() -> {
 
                     botFinal.shutdown();
-
                     try {
 
                         serviceFinal.close();
@@ -330,6 +369,14 @@ public final class LeaderBot {
                             + "do serviço de registo",
                             e
                         );
+                    }
+                    replicationFinal.close();
+                    monitorFinal.close();
+                    try {
+                        hubFinal.stop(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        apresentarErro("Paragem do PubSubHub interrompida", e);
                     }
 
                 }, "encerramento-lider")
@@ -392,7 +439,6 @@ public final class LeaderBot {
                 if (jda != null) {
                     jda.shutdown();
                 }
-
                 if (registoService != null) {
 
                     try {
@@ -421,6 +467,13 @@ public final class LeaderBot {
                             e
                         );
                     }
+                }
+                if (replicationManager != null) replicationManager.close();
+                if (heartbeatMonitor != null) heartbeatMonitor.close();
+                if (hub != null && hubIniciado) {
+                    try { hub.stop(1000); }
+                    catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                    catch (Exception e) { apresentarErro("Falha ao parar PubSubHub", e); }
                 }
             }
         }

@@ -34,6 +34,12 @@
             <version>5.2.1</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.java-websocket</groupId>
+            <artifactId>Java-WebSocket</artifactId>
+            <version>1.5.7</version>
+        </dependency>
+
         <!-- SLF4J Simple (Remove avisos de log no console) -->
         <dependency>
             <groupId>org.slf4j</groupId>

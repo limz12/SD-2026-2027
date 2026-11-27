@@ -374,3 +374,68 @@ A verificação dos componentes do caminho também não elimina todas as condiç
 O funcionamento pressupõe que a pasta de dados está protegida e que não existem processos independentes a inicializar simultaneamente a mesma chave.
 
 Estas limitações devem ser consideradas nos testes do ambiente de execução.
+
+## 14. Comunicação e escrita replicada — E2-03
+
+O líder disponibiliza um hub WebSocket (`PubSubHub`) na porta `8765` por predefinição. A porta e os temporizadores de colocação/heartbeat podem ser alterados com propriedades JVM: `tpf.porto`, `tpf.periodoHbMs`, `tpf.suspeitaMs`, `tpf.mortaMs`, `tpf.tokenValidadeMs`, `tpf.r`, `tpf.wMin`, `tpf.ackTimeoutMs`, `tpf.maxRondas`, `tpf.margemBytes`, `tpf.alfa`, `tpf.backoffMinMs` e `tpf.backoffMaxMs`. O líder rejeita propriedades `tpf.*` desconhecidas, valores inválidos, `W_MIN > R`, tempos de morte incoerentes e backoff máximo inferior ao mínimo.
+
+### Registo e formatos de mensagens
+
+O administrador usa `/replica-token` no servidor e canal configurados. O token aleatório é de uso único, dura 10 minutos e só é apresentado numa resposta efémera. Deve ser entregue manualmente à pessoa que inicia a réplica; não deve ser copiado para logs ou canais públicos.
+
+As mensagens são texto UTF-8, com campos separados por `;`; os bytes binários são Base64:
+
+```text
+Réplica nova -> hub:       OLA;<id>;<chavePublicaX509B64>;<token>
+Réplica registada -> hub:  OLA;<id>
+Hub -> réplica:            DESAFIO;<nonceB64>
+Hub -> réplica:            AUTENTICADO;<id>
+Réplica -> hub:            PROVA;<id>;<assinaturaB64>
+Réplica -> hub:            SUB;tpf-r-<id>
+Réplica -> hub:            SUB;tpf-ctl
+Réplica -> hub:            PUB;tpf-lider;HB;<id>;<usados>;<quota>
+Réplica -> hub:            PUB;tpf-lider;INVENTARIO;<id>;<chunkId,...>
+Líder -> réplica:          PUB;tpf-r-<id>;STORE;<chunkId>;<hdrB64>;<binB64>
+Réplica -> hub:            PUB;tpf-lider;ACK;<id>;<chunkId>;<sha256>
+```
+
+O hub desafia cada ligação com 32 bytes aleatórios novos. A assinatura Ed25519 cobre UTF-8 de `tpf-registo|<id>|<nonceB64>`. Apenas após validar a prova o hub consome um token novo e publica `replicas.txt` atomicamente. Uma réplica registada volta a ligar sem token, mas a sua chave tem de coincidir com a chave X.509 já registada. Ligações fora de ordem e tópicos não autorizados são desligados e registados como `ERRO`.
+
+Depois de autenticar, o hub envia `AUTENTICADO;<id>` para a réplica persistir localmente o estado do primeiro registo e só então subscrever os tópicos.
+
+### Arranque das réplicas
+
+Compilar ambos os projetos:
+
+```powershell
+mvn -f Sprints/E2-03/tpf-lider/pom.xml test
+mvn -f Sprints/E2-03/tpf-replica/pom.xml test
+```
+
+Arrancar o líder com `./iniciar-bot.ps1`, configurar o `tpf.dataDir` persistente e garantir que a porta TCP configurada está acessível às máquinas das réplicas. Para cada instância, pedir um token diferente em `/replica-token` e executar, a partir de `Sprints/E2-03/tpf-replica`:
+
+```powershell
+mvn package
+java -cp target/classes tpf.ReplicaService replica-1 ws://<host-do-lider>:8765 8388608 <token>
+```
+
+Executar o comando noutra janela para cada réplica, usando um ID, quota e token novos. A réplica guarda as chaves Ed25519 em `dados-<id>/replica.pk8` e `replica.pub`, os chunks apenas como `.bin` cifrados e `.hdr`, e os eventos em `eventos-<id>.txt`. Os ficheiros de chave privada são protegidos com permissões exclusivas do dono. O cliente calcula o espaço usado a partir dos `.bin`, envia inventário ao ligar e usa backoff exponencial até 30 segundos quando perde a ligação.
+
+`catalogo.txt` guarda `chunkId;lsnDe;lsnAte;tamanho;replicas;estado` e é substituído atomicamente. Uma cópia só entra no catálogo após um `ACK` válido da ligação autenticada que recebeu `STORE`; o hash tem de ser igual ao `chunkId`. `DURAVEL` requer `max(W_MIN, floor(R/2)+1)` confirmações. Menos de R cópias é apresentado como subreplicação, mesmo que o chunk já seja durável. As reservas são feitas na mesma secção sincronizada que escolhe as réplicas, e libertadas após timeout sem ACK. As rondas continuam até R cópias ou `MAX_RONDAS`, inclusive após atingir durabilidade.
+
+Réplicas recebem somente bytes cifrados e o cabeçalho criptográfico. Não recebem a `master.key`, o catálogo do líder nem registos em claro. `INVENTARIO` é registado pelo hub, mas reparação, reconciliação, `FETCH`, `DELETE` e recuperação a partir de réplicas permanecem fora deste sprint.
+
+### Concorrência
+
+As callbacks JDA submetem escritas a uma thread sequencial de `RegistoService`. O temporizador do chunk sela na thread de `ArquivoLocal`. O hub recebe callbacks WebSocket próprias e sincroniza estados da ligação, tokens e subscrições sob o seu lock. Mensagens autenticadas são encaminhadas para o `ReplicationManager`, que serializa operações de ACK/rondas; os seus timeouts correm num scheduler dedicado. O `HeartbeatMonitor` percorre o `ReplicaRegistry` periodicamente. O registo protege atomicamente quota, uso, reservas e heartbeat; `Catalog` sincroniza cada mutação e gravação atómica. O cliente de réplica usa a callback WebSocket para mensagens e sincroniza armazenamento e cálculo de espaço para impedir STOREs concorrentes de exceder a quota.
+
+### Questões de reflexão
+
+1. O token autoriza o primeiro registo e liga a identidade da réplica à chave pública que o administrador aceitou. Ed25519 prova a posse da chave, mas não prova que essa chave foi autorizada. Um token intercetado durante a validade permite a quem o obtiver tentar registar primeiro uma chave própria; a prova é necessária, mas não impede essa corrida, por isso o token deve ser entregue por canal privado e usado imediatamente.
+2. Assinar o prefixo e o ID vincula a assinatura ao protocolo e à identidade declarada. Isso impede reutilizar a assinatura noutro protocolo ou trocar o ID numa mensagem de desafio.
+3. Escolher e reservar numa secção sincronizada impede dois chunks simultâneos de observar o mesmo espaço livre e ambos o reservarem. Sem atomicidade, uma réplica com 100 bytes livres pode ser escolhida por dois chunks de 80 bytes, reservando 160 bytes.
+4. `W_MIN` estabelece um limite absoluto e a maioria de R cresce com o fator de replicação. Com R=5, são necessárias pelo menos 3 confirmações quando W_MIN=2. W=1 deixa uma única cópia confirmar durabilidade, aumentando o risco de perda; exigir R confirmações impede durabilidade enquanto qualquer réplica estiver indisponível.
+5. Não há escritores concorrentes a atualizar o mesmo objeto. O líder único cria chunks imutáveis e o hash identifica o seu conteúdo, pelo que o problema de quóruns de escrita concorrentes não se coloca neste sprint.
+6. α controla a influência do espaço livre: α=0 elimina essa ponderação e deixa o rendezvous hash determinar a escolha; α=1 pondera linearmente; α=2 favorece mais fortemente réplicas com espaço livre.
+7. O ACK só após as escritas e movimentos atómicos confirma que a réplica publicou os ficheiros completos, em vez de apenas os ter recebido em memória.
+8. O ID autenticado pertence à ligação cuja prova foi validada. Usar o ID do payload permitiria a uma réplica alegar ser outra e obter uma confirmação atribuída incorretamente.

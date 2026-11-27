@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /** Coordena a escrita durável, a selagem e a recuperação local. */
 public final class ArquivoLocal implements AutoCloseable {
@@ -31,6 +32,7 @@ public final class ArquivoLocal implements AutoCloseable {
     private Chunk aberto = new Chunk();
     private ScheduledFuture<?> prazo;
     private IOException falha;
+    private Consumer<SealedChunk> onSealed = ignored -> { };
 
     private record ChunkRecuperado(String id, List<Registo> registos, int tamanho) { }
 
@@ -226,12 +228,40 @@ public final class ArquivoLocal implements AutoCloseable {
                 Chunk atual = aberto;
                 prazo = timer.schedule(() -> selarPorTempo(atual), Wire.SELAGEM_MS, TimeUnit.MILLISECONDS);
             }
+
             if (aberto.tamanho() >= Wire.CHUNK_MAX_BYTES) selar();
             return r;
         } catch (IOException | RuntimeException e) {
             falha = new IOException("Registo persistido, mas falhou o processamento posterior; LSN=" + r.getLsn(), e);
             throw falha;
         }
+    }
+
+    public synchronized void setOnSealed(Consumer<SealedChunk> listener) {
+        onSealed = java.util.Objects.requireNonNull(listener);
+    }
+
+    /** Lista os chunks locais já validados e respetivos metadados LSN. */
+    public synchronized List<SealedChunk> sealedChunks() throws IOException {
+        Map<String, String> byId = eventosSelados();
+        List<SealedChunk> result = new ArrayList<>();
+        for (Map.Entry<String, String> entry : byId.entrySet()) {
+            String[] fields = entry.getValue().split(";", -1);
+            if (fields.length != 3 || !fields[1].startsWith("lsn=")) {
+                throw new IOException("Metadados SELADO inválidos para " + entry.getKey());
+            }
+            String[] range = fields[1].substring(4).split("\\.\\.", -1);
+            if (range.length != 2) throw new IOException("Intervalo LSN inválido para " + entry.getKey());
+            try {
+                Path binPath = ficheiro(entry.getKey(), ".bin");
+                Path hdrPath = ficheiro(entry.getKey(), ".hdr");
+                result.add(new SealedChunk(entry.getKey(), Long.parseLong(range[0]),
+                        Long.parseLong(range[1]), Files.readAllBytes(hdrPath), Files.readAllBytes(binPath)));
+            } catch (NumberFormatException e) {
+                throw new IOException("Intervalo LSN inválido para " + entry.getKey(), e);
+            }
+        }
+        return List.copyOf(result);
     }
 
     private synchronized void selarPorTempo(Chunk esperado) {
@@ -255,6 +285,8 @@ public final class ArquivoLocal implements AutoCloseable {
             concluirPendente(id);
             evento("SELADO", "chunkId=" + id + ";lsn=" + de + ".." + ate + ";tamanho=" + bin.length);
             Files.delete(ficheiro(id, ".pending"));
+            onSealed.accept(new SealedChunk(id, de, ate,
+                    hdr.getBytes(StandardCharsets.UTF_8), bin));
             if (prazo != null) prazo.cancel(false);
             aberto = new Chunk();
             prazo = null;

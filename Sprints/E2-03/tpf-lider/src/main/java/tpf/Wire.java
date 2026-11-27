@@ -28,6 +28,20 @@ public final class Wire {
     public static final long SELAGEM_MS =
             lerLongPositivo("tpf.selagemMs", 5000L);
 
+    public static final int PORTO = lerInteiroPositivo("tpf.porto", 8765);
+    public static final long PERIODO_HB_MS = lerLongPositivo("tpf.periodoHbMs", 2000L);
+    public static final long SUSPEITA_MS = lerLongPositivo("tpf.suspeitaMs", 6000L);
+    public static final long MORTA_MS = lerLongPositivo("tpf.mortaMs", 10000L);
+    public static final long TOKEN_VALIDADE_MS = lerLongPositivo("tpf.tokenValidadeMs", 600000L);
+    public static final int R = lerInteiroPositivo("tpf.r", 3);
+    public static final int W_MIN = lerInteiroPositivo("tpf.wMin", 2);
+    public static final long ACK_TIMEOUT_MS = lerLongPositivo("tpf.ackTimeoutMs", 4000L);
+    public static final int MAX_RONDAS = lerInteiroPositivo("tpf.maxRondas", 3);
+    public static final long MARGEM_BYTES = lerLongPositivo("tpf.margemBytes", 65536L);
+    public static final double ALFA = lerDoubleNaoNegativo("tpf.alfa", 1.0);
+    public static final long BACKOFF_MIN_MS = lerLongPositivo("tpf.backoffMinMs", 1000L);
+    public static final long BACKOFF_MAX_MS = lerLongPositivo("tpf.backoffMaxMs", 30000L);
+
     private Wire() {
         // Classe utilitária.
     }
@@ -89,6 +103,18 @@ public final class Wire {
                 + "' (esperado inteiro positivo)",
                 e
             );
+        }
+    }
+
+    private static double lerDoubleNaoNegativo(String propriedade, double predefinido) {
+        String valor = System.getProperty(propriedade);
+        if (valor == null) return predefinido;
+        try {
+            double numero = Double.parseDouble(valor);
+            if (!Double.isFinite(numero) || numero < 0) throw new NumberFormatException();
+            return numero;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Propriedade JVM inválida: " + propriedade + "='" + valor + "'", e);
         }
     }
 }
