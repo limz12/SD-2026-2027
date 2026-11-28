@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "LeaderBot (E2-03)",
+            "request": "launch",
+            "mainClass": "tpf.LeaderBot",
+            "vmArgs": "-Dtpf.dataDir=${workspaceFolder}/Sprints/E2-03/tpf-lider-03/dados-lider"
+        }
+    ]
+}

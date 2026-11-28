@@ -1,0 +1,13 @@
+tpf\Sealed.class
+tpf\RegistoService.class
+tpf\MasterKey.class
+tpf\ArquivoLocal.class
+tpf\ChunkCheck.class
+tpf\RegistoLog$Estado.class
+tpf\ArquivoLocal$ChunkRecuperado.class
+tpf\RegistoLog.class
+tpf\Registo.class
+tpf\Wire.class
+tpf\MasterKey$1.class
+tpf\Chunk.class
+tpf\ChunkCrypto.class
